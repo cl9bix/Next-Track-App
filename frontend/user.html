@@ -106,6 +106,17 @@
 
         .hidden{display:none!important}
         .muted{color:var(--muted)}
+
+        /* === Autocomplete === */
+        .ac{position:relative}
+        .ac-list{position:absolute; inset:auto 0 0 0; transform:translateY(8px);
+            background:rgba(255,255,255,.08); border:1px solid var(--border); border-radius:12px;
+            backdrop-filter:blur(8px); box-shadow:var(--shadow); z-index:50; max-height:320px; overflow:auto}
+        .ac-item{display:flex; gap:10px; padding:10px; align-items:center; cursor:pointer}
+        .ac-item:hover{background:rgba(255,255,255,.10)}
+        .ac-cover{width:40px; height:40px; border-radius:8px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); background-size:cover; background-position:center}
+        .ac-title{font-weight:800}
+        .ac-sub{font-size:12px; color:var(--muted)}
     </style>
 </head>
 <body>
@@ -155,12 +166,13 @@
 
             <section id="search" class="screen card">
                 <div class="search">
-                    <div class="field">
-                        <input id="q" class="input" type="text" placeholder="Track — Artist" />
+                    <div class="field ac">
+                        <input id="q" class="input" type="text" placeholder="Track — Artist" autocomplete="off"/>
                         <button id="add" class="btn">＋</button>
+                        <div id="acList" class="ac-list hidden"></div>
                     </div>
-                    <div class="hint i18n" data-key="hint_en">Tip: paste a song name or share from your player — it appears in the vote list.</div>
-                    <div class="hint i18n hidden" data-key="hint_ru">Подсказка: вставь название песни или поделись из плеера — трек попадёт в список голосования.</div>
+                    <div class="hint i18n" data-key="hint_en">Tip: start typing to search the global catalog.</div>
+                    <div class="hint i18n hidden" data-key="hint_ru">Подсказка: начни вводить — поиск по глобальному каталогу.</div>
                 </div>
             </section>
 
@@ -208,19 +220,18 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
     // ====== CONFIG ======
-    // In prod — serve this file behind your domain and proxy API to /api, or set absolute URL:
     // const API_BASE = (window.__API_BASE__) || '/api';
     const API_BASE = 'http://localhost:8000/api';
 
-    // Endpoints your backend should expose (names can be mapped here if different):
     const EP = {
-        authWebApp:  (initData) => `${API_BASE}/auth/telegram/webapp?init_data=${encodeURIComponent(initData)}`, // GET or POST, adjust below
+        authWebApp:  (initData) => `${API_BASE}/auth/telegram/webapp?init_data=${encodeURIComponent(initData)}`,
         me:          () => `${API_BASE}/users/me`,
         event:       (id) => `${API_BASE}/events/${id}`,
         queue:       (id) => `${API_BASE}/events/${id}/queue`,
         vote:        (id) => `${API_BASE}/events/${id}/vote`,      // POST {track_id}
-        suggest:     (id) => `${API_BASE}/events/${id}/suggest`,   // POST {query}
-        myVotes:     (id) => `${API_BASE}/events/${id}/my-votes`,  // GET
+        suggest:     (id) => `${API_BASE}/events/${id}/suggest`,   // POST {title, artist}
+        myVotes:     (id) => `${API_BASE}/events/${id}/my-votes`,
+        search:      (q,limit=15) => `${API_BASE}/search?q=${encodeURIComponent(q)}&limit=${limit}`,
     };
 
     // ====== HELPERS ======
@@ -324,7 +335,6 @@
       `;
             qWrap.appendChild(row);
         }
-        // click handlers
         qWrap.onclick = async (e)=>{
             const btn = e.target.closest('.vote'); if(!btn) return;
             const id = btn.dataset.id; if(state.myVotes.has(id)) return;
@@ -333,7 +343,6 @@
                 state.myVotes.add(id);
                 btn.classList.add('voted'); btn.textContent='Voted';
                 confettiAt(btn);
-                // refresh small deltas
                 await refreshQueue();
                 await refreshMyVotes();
             }catch(err){ console.error(err); alert('Vote failed'); }
@@ -379,17 +388,21 @@
             const data = await getJSON(EP.myVotes(EVENT_ID));
             const ids = Array.isArray(data) ? data : (data.ids||[]);
             state.myVotes = new Set(ids);
-        }catch{ /* not logged or endpoint absent */ }
+        }catch{}
         renderMine();
     }
 
-    // ====== SUGGEST ======
+    // ====== SUGGEST (ручний ввод) ======
     byId('add').addEventListener('click', async ()=>{
-        const q = byId('q').value.trim();
-        if(!q || !EVENT_ID) return;
+        const raw = byId('q').value.trim();
+        if(!raw || !EVENT_ID) return;
+        const parts = raw.split(/ — | - | – /);
+        const title = (parts[0]||'').trim();
+        const artist = (parts[1]||'').trim();
         try{
-            await postJSON(EP.suggest(EVENT_ID), { query:q });
+            await postJSON(EP.suggest(EVENT_ID), { title, artist });
             byId('q').value='';
+            hideAC();
             await refreshQueue();
             selectTab('queue');
         }catch(err){ console.error(err); alert('Suggest failed'); }
@@ -410,45 +423,170 @@
     // ====== TELEGRAM AUTH (WebApp) ======
     async function authViaTelegram(){
         const tg = window.Telegram?.WebApp;
-        if(!tg || !tg.initDataUnsafe?.user){
-            // Fallback demo mode (no auth). Keep @guest until backend auth happens.
-            return null;
-        }
+        if(!tg || !tg.initDataUnsafe?.user){ return null; }
         try{
-            // Option A: GET with init_data in query (shown below).
-            // Option B: switch to POST if your backend expects JSON; uncomment:
-            // const res = await fetch(`${API_BASE}/auth/telegram/webapp`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ init_data: tg.initData }) });
-
             const res = await fetch(EP.authWebApp(tg.initData));
             if(!res.ok) throw new Error('auth failed');
             const payload = await res.json();
-            // expected: { access_token, user: { tg_id, tg_username, img } }
             if(payload?.access_token) setAuth(payload.access_token);
             if(payload?.user) state.user = payload.user;
             renderUser();
             return payload;
         }catch(e){
             console.error(e);
-            // still show basic tg info if available
             const u = tg.initDataUnsafe.user;
-            state.user = {
-                tg_id: u?.id, tg_username: u?.username, img: u?.photo_url
-            };
+            state.user = { tg_id: u?.id, tg_username: u?.username, img: u?.photo_url };
             renderUser();
             return null;
         }
     }
 
+    // ====== AUTOCOMPLETE (онлайн пошук) — IME-safe + throttle + normalize ======
+    const acBox = document.getElementById('acList');
+    const qInput = document.getElementById('q');
+
+    let acTimer = null;
+    let acCtrl = null;
+    let lastQuery = '';
+    let isComposing = false;
+    let skipNextInputAfterComposition = false;
+
+    // LRU-кеш до 50 ключів
+    const acCache = new Map();
+    function cacheGet(key){ return acCache.get(key); }
+    function cacheSet(key,val){
+        if(acCache.has(key)) acCache.delete(key);
+        acCache.set(key,val);
+        if(acCache.size>50){ acCache.delete(acCache.keys().next().value); }
+    }
+
+    // Throttle однакових q (600мс)
+    const sentAt = new Map();
+    function canSend(q){
+        const now = Date.now(), prev = sentAt.get(q)||0;
+        if(now - prev < 600) return false;
+        sentAt.set(q, now);
+        return true;
+    }
+
+    // Нормалізація до {id,title,artist,album,cover_url}
+    function normalizeItems(raw){
+        if(Array.isArray(raw)) return raw.map(normalizeOne);
+        if(raw?.items && Array.isArray(raw.items)) return raw.items.map(normalizeOne);
+        if(raw?.results && Array.isArray(raw.results)) return raw.results.map(normalizeOne);
+        return [];
+    }
+    function firstNonEmpty(...vals){
+        for(const v of vals){ if(v !== undefined && v !== null && String(v).trim() !== '') return v; }
+        return '';
+    }
+    function normalizeOne(it){
+        const id = it.id || it.trackId || it.key || cryptoRandomId();
+        const title = firstNonEmpty(it.title, it.name, it.trackName, it.song, it.track, it.label);
+        const artist = firstNonEmpty(
+            it.artist, it.artistName, it.author, it.singer,
+            Array.isArray(it.artists) && it.artists.length ? (it.artists[0].name || it.artists[0].title || it.artists[0]) : ''
+        );
+        const album = firstNonEmpty(it.album, it.albumName, it.collectionName);
+        const cover = firstNonEmpty(it.cover_url, it.thumbnail, it.thumbnail_url, it.image, it.picture, it.artworkUrl100, it.artworkUrl60);
+        return { id, title: title || 'Untitled', artist, album, cover_url: cover || '' };
+    }
+    function cryptoRandomId(){
+        try{ const a = new Uint32Array(2); crypto.getRandomValues(a); return 'x'+a[0].toString(36)+a[1].toString(36); }
+        catch{ return 'x'+Math.random().toString(36).slice(2); }
+    }
+
+    async function apiSearch(q){
+        const cached = cacheGet(q);
+        if(cached) return cached;
+
+        if(acCtrl) acCtrl.abort();
+        acCtrl = new AbortController();
+
+        const url = EP.search(q, 15);
+        const res = await fetch(url, {
+            headers: { 'Accept':'application/json', ...authHeaders(), 'Accept-Language': state.lang || 'en' },
+            signal: acCtrl.signal
+        });
+        if(!res.ok) throw new Error('search failed');
+
+        const raw = await res.json();
+        const items = normalizeItems(raw);
+        cacheSet(q, items);
+        return items;
+    }
+
+    function hideAC(){ acBox.classList.add('hidden'); acBox.innerHTML=''; }
+    function showAC(items){
+        acBox.innerHTML = items.length
+            ? items.map(it=>`
+            <div class="ac-item" data-title="${encodeURIComponent(it.title||'')}" data-artist="${encodeURIComponent(it.artist||'')}" data-id="${it.id}">
+              <div class="ac-cover" style="background-image:url('${(it.cover_url||'').replaceAll('"','%22')}')"></div>
+              <div>
+                <div class="ac-title">${(it.title||'Untitled')}</div>
+                <div class="ac-sub">${(it.artist||'')}${it.album ? ' — '+it.album : ''}</div>
+              </div>
+            </div>`).join('')
+            : `<div class="ac-item" style="opacity:.7; cursor:default">No results</div>`;
+        acBox.classList.remove('hidden');
+    }
+
+    // IME підтримка
+    qInput.addEventListener('compositionstart', ()=>{ isComposing = true; });
+    qInput.addEventListener('compositionend',   ()=>{
+        isComposing = false;
+        skipNextInputAfterComposition = true;
+        triggerSearch(qInput.value.trim());
+    });
+
+    qInput.addEventListener('input', (e)=>{
+        if (skipNextInputAfterComposition) { skipNextInputAfterComposition = false; return; }
+        if (isComposing) return;
+        triggerSearch(e.target.value.trim());
+    });
+
+    function triggerSearch(q){
+        clearTimeout(acTimer);
+        if(q.length < 2){ hideAC(); lastQuery=''; return; }
+        acTimer = setTimeout(async ()=>{
+            if(q === lastQuery || !canSend(q)) return;
+            try{
+                const items = await apiSearch(q);
+                lastQuery = q;
+                showAC(items);
+            }catch(err){
+                if(err?.name !== 'AbortError'){ console.error(err); hideAC(); }
+            }
+        }, 350);
+    }
+
+    // Клік по підказці -> відправити DJ (title + artist)
+    acBox.addEventListener('click', async (e)=>{
+        const item = e.target.closest('.ac-item'); if(!item) return;
+        const title = decodeURIComponent(item.dataset.title || '');
+        theArtist = decodeURIComponent(item.dataset.artist || '');
+        hideAC();
+        if(!EVENT_ID){ alert('No event selected'); return; }
+        try{
+            await postJSON(EP.suggest(EVENT_ID), { title, artist: theArtist });
+            selectTab('queue');
+            await refreshQueue();
+        }catch(err){ console.error(err); alert('Send to DJ failed'); }
+    });
+
+    // Закривати список по Escape / blur
+    qInput.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') hideAC(); });
+    function hideAC(){ acBox.classList.add('hidden'); acBox.innerHTML=''; } // ensure available for add-click
+    qInput.addEventListener('blur', ()=>{ setTimeout(hideAC, 120); });
+
     // ====== INIT ======
     async function init(){
-        // Show TG link only if not inside Telegram
         const isInTG = !!window.Telegram?.WebApp?.initData;
         if(isInTG){
             byId('openTG').classList.add('hidden');
             try { window.Telegram.WebApp.expand(); } catch{}
         }
 
-        // If event id missing — keep UI but indicate unset
         if(!EVENT_ID){ byId('eventName').textContent='No event'; }
 
         await authViaTelegram();

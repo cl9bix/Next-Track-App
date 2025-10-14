@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.models.session import Base, engine
 from app.api.router_public import router as public_router
 from app.api.router_organizer import router as organizer_router
@@ -8,6 +9,7 @@ from app.api.router_songs import router as songs_router
 from app.api.router_users import router as users_router
 from app.api.router_djs import router as djs_router
 from app.api.router_ws import router as ws_router
+from app.api.router_search import router as search_router
 
 app = FastAPI(title="Next Track API")
 
@@ -19,6 +21,15 @@ app.include_router(songs_router)
 app.include_router(users_router)
 app.include_router(djs_router)
 app.include_router(ws_router)
+app.include_router(search_router)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173","http://127.0.0.1:5500","http://localhost:5500","*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 async def root():
