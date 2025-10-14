@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Next Track — User</title>
+    <meta name="description" content="Next Track — User view: vote, suggest, see what's next." />
+
+    <!-- ✅ Simple prod hardening -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta http-equiv="Cache-Control" content="no-store" />
+    <link rel="preconnect" href="https://api.telegram.org" crossorigin>
+
+    <style>
+        :root{
+            --bg:#0b0720; --bg2:#09061f;
+            --txt:#f0eff6; --muted:#b8b6d3;
+            --accent1:#4dd0ff; --accent2:#ff4dd2; --ok:#77f2a1;
+            --glass:rgba(255,255,255,.06); --border:rgba(255,255,255,.12);
+            --shadow:0 10px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
+            --radius:16px; --maxw:820px;
+        }
+        *{box-sizing:border-box}
+        html,body{height:100%}
+        body{margin:0; color:var(--txt); background:var(--bg); font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif; -webkit-font-smoothing:antialiased}
+        a{color:inherit; text-decoration:none}
+        .app{min-height:100%; display:flex; flex-direction:column}
+        .container{width:100%; max-width:var(--maxw); margin:0 auto; padding:0 16px}
+
+        .bg{position:fixed; inset:0; z-index:-2; background:
+                radial-gradient(55vw 55vw at 15% 10%, rgba(77,208,255,.25), transparent 60%),
+                radial-gradient(45vw 45vw at 90% 0%, rgba(255,77,210,.20), transparent 60%),
+                radial-gradient(35vw 35vw at 70% 80%, rgba(105,92,255,.18), transparent 60%),
+                linear-gradient(180deg, #0b0720 0%, #08051a 100%);}
+        .blob{position:fixed; width:48vmin; height:48vmin; border-radius:50%; filter:blur(18px); mix-blend-mode:screen; opacity:.45; z-index:-1; animation:drift 26s ease-in-out infinite}
+        .blob.b2{right:-8vmin; top:8vmin; background:radial-gradient(circle at 70% 40%, rgba(255,77,210,.25), rgba(77,208,255,.12)); animation-duration:30s}
+        .blob.b1{left:-6vmin; top:20vmin; background:radial-gradient(circle at 30% 30%, rgba(77,208,255,.25), rgba(255,77,210,.15))}
+        @keyframes drift{0%{transform:translate(-5vmin,0)}50%{transform:translate(6vmin,2vmin)}100%{transform:translate(-5vmin,0)}}
+
+        header{position:sticky; top:0; background:linear-gradient(180deg, rgba(8,5,26,.7), rgba(8,5,26,.25)); backdrop-filter:blur(8px) saturate(140%); border-bottom:1px solid var(--border); z-index:5}
+        .topbar{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 0}
+        .brand{display:flex; align-items:center; gap:10px}
+        .brand img{width:32px; height:32px; border-radius:8px}
+        .brand b{letter-spacing:.2px}
+        .event-pill{display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; background:var(--glass); border:1px solid var(--border); box-shadow:var(--shadow); font-weight:700}
+        .lang-toggle button{border:none; background:transparent; color:var(--muted); font-weight:800; padding:6px 10px; border-radius:999px; cursor:pointer}
+        .lang-toggle button.active{color:var(--txt); background:rgba(255,255,255,.08); border:1px solid var(--border)}
+
+        .now{margin:14px 0 6px}
+        .card{background:var(--glass); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
+        .now .inner{display:flex; gap:14px; padding:14px}
+        .cover{width:62px; height:62px; border-radius:14px; background:linear-gradient(135deg,var(--accent1),var(--accent2))}
+        .meta{display:flex; flex-direction:column; gap:6px; min-width:0}
+        .title{font-weight:900; font-size:18px}
+        .sub{color:var(--muted)}
+        .live{margin-left:auto; align-self:flex-start; padding:8px 10px; border-radius:999px; background:rgba(255,255,255,.08); border:1px solid var(--border); font-weight:800}
+        .bars{height:8px; background:rgba(255,255,255,.09); border-radius:999px; overflow:hidden; position:relative}
+        .bars>span{position:absolute; inset:0 auto 0 0; width:65%; background:linear-gradient(90deg,var(--accent1),var(--accent2)); animation:pulse 2.4s ease-in-out infinite}
+        @keyframes pulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
+
+        .views{flex:1 1 auto; padding:8px 0 92px}
+        .bottom{position:fixed; inset:auto 0 0 0; background:linear-gradient(180deg, rgba(8,5,26,.4), rgba(8,5,26,.75)); backdrop-filter:blur(10px) saturate(150%); border-top:1px solid var(--border); z-index:6}
+        .bottom .container{display:flex; gap:8px; padding:8px 12px}
+        .btab{flex:1 1 0; border:none; border-radius:12px; color:var(--txt); background:rgba(255,255,255,.06); border:1px solid var(--border); padding:10px 12px; font-weight:900; letter-spacing:.2px; cursor:pointer}
+        .btab.active{background:linear-gradient(135deg, rgba(77,208,255,.18), rgba(255,77,210,.18)); border-color:rgba(255,255,255,.28)}
+        .screen{display:none}
+        .screen.active{display:block; animation:reveal .28s ease}
+        @keyframes reveal{from{opacity:0; transform:translateY(8px)}to{opacity:1; transform:translateY(0)}}
+
+        .list{display:flex; flex-direction:column; gap:10px; padding:12px}
+        .row{display:flex; gap:12px; align-items:center; padding:12px; border-radius:14px; background:rgba(255,255,255,.06); border:1px solid var(--border)}
+        .row .art{width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,var(--accent1),var(--accent2))}
+        .row .body{flex:1 1 auto; min-width:0}
+        .row .name{font-weight:800}
+        .row .note{color:var(--muted); font-size:12px}
+        .row .bar{--p:50%; --t:40%; position:relative; height:8px; border-radius:999px; background:rgba(255,255,255,.09); overflow:hidden; margin-top:6px}
+        .row .bar span.v{position:absolute; inset:0 auto 0 0; width:var(--p); background:linear-gradient(90deg,var(--accent1), #a1e1ff); transition:width .35s cubic-bezier(.2,.7,.2,1)}
+        .row .bar span.t{position:absolute; inset:0 auto 0 0; width:var(--t); background:linear-gradient(90deg,var(--accent2), #ff9de6); opacity:.9; transition:width .35s cubic-bezier(.2,.7,.2,1)}
+        .vote{border:none; padding:10px 12px; border-radius:12px; font-weight:900; background:linear-gradient(135deg, rgba(77,208,255,.18), rgba(255,77,210,.18)); border:1px solid rgba(255,255,255,.22); cursor:pointer}
+        .vote.voted{position:relative; color:#0b0720; background:linear-gradient(135deg, rgba(119,242,161,.9), rgba(77,208,255,.65)); border-color:rgba(255,255,255,.4)}
+        .vote.voted:after{content:"✓"; font-weight:900; margin-left:6px}
+
+        .search{padding:12px}
+        .field{display:flex; gap:8px}
+        .input{flex:1 1 auto; background:rgba(255,255,255,.06); border:1px solid var(--border); border-radius:12px; padding:12px 14px; color:var(--txt); outline:none}
+        .btn{border:none; padding:12px 14px; border-radius:12px; font-weight:900; cursor:pointer; background:linear-gradient(135deg, rgba(77,208,255,.18), rgba(255,77,210,.18)); border:1px solid rgba(255,255,255,.22)}
+        .hint{color:var(--muted); font-size:12px; margin:8px 2px}
+
+        .mine{padding:12px}
+        .empty{padding:18px; text-align:center; color:var(--muted)}
+
+        .profile{padding:12px; display:grid; gap:12px}
+        .rower{display:flex; align-items:center; gap:12px}
+        .avatar{width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg, var(--accent1), var(--accent2)); background-size:cover; background-position:center}
+        .kv{display:grid; gap:2px}
+        .kv .k{color:var(--muted); font-size:12px}
+        .switch{display:flex; gap:8px; align-items:center}
+        .switch .tog{appearance:none; width:44px; height:28px; border-radius:999px; background:rgba(255,255,255,.12); position:relative; border:1px solid var(--border); cursor:pointer; outline:none}
+        .switch .tog:checked{background:linear-gradient(90deg,var(--accent1),var(--accent2))}
+        .switch .tog:before{content:""; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; transition:left .2s}
+        .switch .tog:checked:before{left:19px}
+
+        .confetti{position:absolute; pointer-events:none; inset:0}
+        .confetti i{position:absolute; width:6px; height:10px; border-radius:2px; opacity:.9; background:linear-gradient(180deg,var(--accent1),var(--accent2)); animation:drop 700ms ease-out forwards}
+        @keyframes drop{to{transform:translateY(26px) rotate(160deg); opacity:0}}
+
+        .hidden{display:none!important}
+        .muted{color:var(--muted)}
+    </style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="blob b1"></div><div class="blob b2"></div>
+
+<div class="app">
+    <header>
+        <div class="container topbar">
+            <div class="brand">
+                <img src="logo.jpg" alt="Next Track" />
+                <div>
+                    <b>Next Track</b><div class="sub muted i18n" data-key="subtitle_en">Vote & suggest in real time</div>
+                    <div class="sub muted i18n hidden" data-key="subtitle_ru">Голосуй и предлагай в реальном времени</div>
+                </div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center">
+                <span class="event-pill">🎧 <span id="djName">...</span> • <span id="eventName">...</span></span>
+                <div class="lang-toggle">
+                    <button data-lang="en" class="active">EN</button>
+                    <button data-lang="ru">RU</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="views">
+        <div class="container">
+            <!-- Now playing -->
+            <section class="now card">
+                <div class="inner">
+                    <div class="cover" aria-hidden="true"></div>
+                    <div class="meta" style="flex:1 1 auto">
+                        <div class="title" id="nowTitle">—</div>
+                        <div class="sub muted i18n" data-key="now_en">Now playing</div>
+                        <div class="sub muted i18n hidden" data-key="now_ru">Сейчас играет</div>
+                        <div class="bars"><span></span></div>
+                    </div>
+                    <div class="live">LIVE</div>
+                </div>
+            </section>
+
+            <!-- Screens -->
+            <section id="queue" class="screen active card">
+                <div class="list" id="queueList"></div>
+            </section>
+
+            <section id="search" class="screen card">
+                <div class="search">
+                    <div class="field">
+                        <input id="q" class="input" type="text" placeholder="Track — Artist" />
+                        <button id="add" class="btn">＋</button>
+                    </div>
+                    <div class="hint i18n" data-key="hint_en">Tip: paste a song name or share from your player — it appears in the vote list.</div>
+                    <div class="hint i18n hidden" data-key="hint_ru">Подсказка: вставь название песни или поделись из плеера — трек попадёт в список голосования.</div>
+                </div>
+            </section>
+
+            <section id="mine" class="screen card">
+                <div class="mine" id="myVotes"></div>
+            </section>
+
+            <section id="profile" class="screen card">
+                <div class="profile">
+                    <div class="rower">
+                        <div class="avatar" id="avatar"></div>
+                        <div class="kv">
+                            <div class="k i18n" data-key="you_en">You</div>
+                            <div class="k i18n hidden" data-key="you_ru">Вы</div>
+                            <div><b id="userName">@guest</b></div>
+                            <div class="muted" id="userId"></div>
+                        </div>
+                    </div>
+                    <div class="rower" style="justify-content:space-between">
+                        <div class="kv">
+                            <div class="k i18n" data-key="notif_en">Notifications</div>
+                            <div class="k i18n hidden" data-key="notif_ru">Уведомления</div>
+                            <div class="muted i18n" data-key="notif2_en">Top track changes, your suggestion up</div>
+                            <div class="muted i18n hidden" data-key="notif2_ru">Смена лидера, апвоуты вашей заявки</div>
+                        </div>
+                        <label class="switch"><input id="notifs" type="checkbox" class="tog"><span></span></label>
+                    </div>
+                    <a class="btn" id="openTG" href="https://t.me/YourBotUsername?start=webapp" target="_blank" rel="noopener">Open in Telegram</a>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <nav class="bottom">
+        <div class="container">
+            <button class="btab active" data-target="queue">⬆ Up Next</button>
+            <button class="btab" data-target="search">🔎 Suggest</button>
+            <button class="btab" data-target="mine">❤️ My votes</button>
+            <button class="btab" data-target="profile">👤 Profile</button>
+        </div>
+    </nav>
+</div>
+
+<!-- Telegram WebApp SDK (optional if inside TG) -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+    // ====== CONFIG ======
+    // In prod — serve this file behind your domain and proxy API to /api, or set absolute URL:
+    // const API_BASE = (window.__API_BASE__) || '/api';
+    const API_BASE = 'http://localhost:8000/api';
+
+    // Endpoints your backend should expose (names can be mapped here if different):
+    const EP = {
+        authWebApp:  (initData) => `${API_BASE}/auth/telegram/webapp?init_data=${encodeURIComponent(initData)}`, // GET or POST, adjust below
+        me:          () => `${API_BASE}/users/me`,
+        event:       (id) => `${API_BASE}/events/${id}`,
+        queue:       (id) => `${API_BASE}/events/${id}/queue`,
+        vote:        (id) => `${API_BASE}/events/${id}/vote`,      // POST {track_id}
+        suggest:     (id) => `${API_BASE}/events/${id}/suggest`,   // POST {query}
+        myVotes:     (id) => `${API_BASE}/events/${id}/my-votes`,  // GET
+    };
+
+    // ====== HELPERS ======
+    const $ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
+    const byId = id => document.getElementById(id);
+    const qs = new URLSearchParams(location.search);
+    const EVENT_ID = qs.get('event') || ''; // ?event=abcd123
+
+    const state = {
+        token: null,
+        user: { tg_id:null, tg_username:null, img:null },
+        event: null,
+        queue: [],
+        myVotes: new Set(),
+        lang: localStorage.getItem('nt_user_lang') || 'en',
+    };
+
+    function setAuth(token){ state.token = token; }
+    function authHeaders(){
+        return state.token ? { 'Authorization': `Bearer ${state.token}` } : {};
+    }
+    async function getJSON(url, opts={}){
+        const res = await fetch(url, { ...opts, headers:{ 'Accept':'application/json', ...(opts.headers||{}), ...authHeaders() } });
+        if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        return await res.json();
+    }
+    async function postJSON(url, body){
+        const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json', ...authHeaders() }, body:JSON.stringify(body||{}) });
+        if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        return await res.json();
+    }
+
+    // ====== LANGUAGE ======
+    const langButtons = $('.lang-toggle button');
+    function setLang(code){
+        langButtons.forEach(b=>b.classList.toggle('active', b.dataset.lang===code));
+        document.documentElement.lang = code==='ru'?'ru':'en';
+        const show = code==='ru' ? '_ru' : '_en';
+        const hide = code==='ru' ? '_en' : '_ru';
+        $('.i18n').forEach(el=>{
+            const k = el.dataset.key||'';
+            if(k.endsWith(show)) el.classList.remove('hidden');
+            else if(k.endsWith(hide)) el.classList.add('hidden');
+        });
+        localStorage.setItem('nt_user_lang', code);
+        state.lang = code;
+    }
+    langButtons.forEach(b=>b.addEventListener('click', ()=>setLang(b.dataset.lang)));
+    setLang(state.lang);
+
+    // ====== RENDER ======
+    function renderUser(){
+        const name = state.user?.tg_username ? '@'+state.user.tg_username : '@guest';
+        byId('userName').textContent = name;
+        byId('userId').textContent = state.user?.tg_id ? `id: ${state.user.tg_id}` : '';
+        const img = state.user?.img;
+        if(img) byId('avatar').style.backgroundImage = `url("${img}")`;
+    }
+
+    function renderEvent(){
+        if(!state.event) return;
+        byId('djName').textContent = state.event?.dj_name || 'DJ';
+        byId('eventName').textContent = state.event?.name || 'Event';
+        byId('nowTitle').textContent = state.event?.now_playing || '—';
+    }
+
+    function confettiAt(el){
+        const box = el.closest('.row');
+        if(!box) return;
+        let w = box.querySelector('.confetti');
+        if(!w){ w = document.createElement('div'); w.className='confetti'; box.appendChild(w); }
+        for(let i=0;i<10;i++){
+            const p = document.createElement('i');
+            p.style.left = (10+Math.random()*80)+'%';
+            p.style.top = (0+Math.random()*6)+'%';
+            w.appendChild(p);
+            setTimeout(()=>p.remove(), 750);
+        }
+    }
+
+    function renderQueue(){
+        const qWrap = byId('queueList');
+        qWrap.innerHTML = '';
+        const tracks = [...state.queue].sort((a,b)=> (b.votes??0)-(a.votes??0));
+        for(const t of tracks){
+            const row = document.createElement('div');
+            row.className = 'row';
+            const voted = state.myVotes.has(t.id);
+            const trend = t.trend ?? 0;
+            const votes = t.votes ?? 0;
+            row.innerHTML = `
+        <div class="art" aria-hidden="true"></div>
+        <div class="body">
+          <div class="name">${t.title || t.name || 'Untitled'}</div>
+          <div class="note">${t.note || ''}</div>
+          <div class="bar" style="--p:${Math.max(0,Math.min(100,votes))}%; --t:${Math.max(0,Math.min(100,trend))}%">
+            <span class="v"></span><span class="t"></span>
+          </div>
+        </div>
+        <button class="vote ${voted?'voted':''}" data-id="${t.id}">${voted?'Voted':'Vote'}</button>
+      `;
+            qWrap.appendChild(row);
+        }
+        // click handlers
+        qWrap.onclick = async (e)=>{
+            const btn = e.target.closest('.vote'); if(!btn) return;
+            const id = btn.dataset.id; if(state.myVotes.has(id)) return;
+            try{
+                await postJSON(EP.vote(EVENT_ID), { track_id:id });
+                state.myVotes.add(id);
+                btn.classList.add('voted'); btn.textContent='Voted';
+                confettiAt(btn);
+                // refresh small deltas
+                await refreshQueue();
+                await refreshMyVotes();
+            }catch(err){ console.error(err); alert('Vote failed'); }
+        };
+    }
+
+    function renderMine(){
+        const box = byId('myVotes');
+        const ids = Array.from(state.myVotes);
+        if(!ids.length){
+            box.innerHTML = `<div class="empty i18n" data-key="empty_en">You have not voted yet.</div><div class="empty i18n hidden" data-key="empty_ru">Вы ещё не голосовали.</div>`;
+            return;
+        }
+        const picked = state.queue.filter(t=>ids.includes(t.id));
+        const rows = picked.map(t=>`
+      <div class="row">
+        <div class="art"></div>
+        <div class="body">
+          <div class="name">${t.title || t.name}</div>
+          <div class="note muted">${t.note||''}</div>
+          <div class="bar" style="--p:${t.votes??0}%; --t:${t.trend??0}%"><span class="v"></span><span class="t"></span></div>
+        </div>
+        <div class="vote voted">Voted</div>
+      </div>`).join('');
+        box.innerHTML = `<div class="list">${rows}</div>`;
+    }
+
+    // ====== DATA FETCHERS ======
+    async function refreshEvent(){
+        if(!EVENT_ID) return;
+        state.event = await getJSON(EP.event(EVENT_ID));
+        renderEvent();
+    }
+    async function refreshQueue(){
+        if(!EVENT_ID) return;
+        const data = await getJSON(EP.queue(EVENT_ID));
+        state.queue = Array.isArray(data) ? data : (data.items||[]);
+        renderQueue();
+    }
+    async function refreshMyVotes(){
+        if(!EVENT_ID) return;
+        try{
+            const data = await getJSON(EP.myVotes(EVENT_ID));
+            const ids = Array.isArray(data) ? data : (data.ids||[]);
+            state.myVotes = new Set(ids);
+        }catch{ /* not logged or endpoint absent */ }
+        renderMine();
+    }
+
+    // ====== SUGGEST ======
+    byId('add').addEventListener('click', async ()=>{
+        const q = byId('q').value.trim();
+        if(!q || !EVENT_ID) return;
+        try{
+            await postJSON(EP.suggest(EVENT_ID), { query:q });
+            byId('q').value='';
+            await refreshQueue();
+            selectTab('queue');
+        }catch(err){ console.error(err); alert('Suggest failed'); }
+    });
+
+    // ====== PROFILE / NOTIFS (client only toggle) ======
+    const tog = byId('notifs');
+    tog.addEventListener('change', ()=>{ localStorage.setItem('nt_user_notifs', tog.checked?'1':'0'); });
+    tog.checked = localStorage.getItem('nt_user_notifs')==='1';
+
+    // ====== BOTTOM NAV ======
+    function selectTab(id){
+        $('.btab').forEach(b=>b.classList.toggle('active', b.dataset.target===id));
+        $('.screen').forEach(s=>s.classList.toggle('active', s.id===id));
+    }
+    $('.btab').forEach(b=>b.addEventListener('click', ()=>selectTab(b.dataset.target)));
+
+    // ====== TELEGRAM AUTH (WebApp) ======
+    async function authViaTelegram(){
+        const tg = window.Telegram?.WebApp;
+        if(!tg || !tg.initDataUnsafe?.user){
+            // Fallback demo mode (no auth). Keep @guest until backend auth happens.
+            return null;
+        }
+        try{
+            // Option A: GET with init_data in query (shown below).
+            // Option B: switch to POST if your backend expects JSON; uncomment:
+            // const res = await fetch(`${API_BASE}/auth/telegram/webapp`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ init_data: tg.initData }) });
+
+            const res = await fetch(EP.authWebApp(tg.initData));
+            if(!res.ok) throw new Error('auth failed');
+            const payload = await res.json();
+            // expected: { access_token, user: { tg_id, tg_username, img } }
+            if(payload?.access_token) setAuth(payload.access_token);
+            if(payload?.user) state.user = payload.user;
+            renderUser();
+            return payload;
+        }catch(e){
+            console.error(e);
+            // still show basic tg info if available
+            const u = tg.initDataUnsafe.user;
+            state.user = {
+                tg_id: u?.id, tg_username: u?.username, img: u?.photo_url
+            };
+            renderUser();
+            return null;
+        }
+    }
+
+    // ====== INIT ======
+    async function init(){
+        // Show TG link only if not inside Telegram
+        const isInTG = !!window.Telegram?.WebApp?.initData;
+        if(isInTG){
+            byId('openTG').classList.add('hidden');
+            try { window.Telegram.WebApp.expand(); } catch{}
+        }
+
+        // If event id missing — keep UI but indicate unset
+        if(!EVENT_ID){ byId('eventName').textContent='No event'; }
+
+        await authViaTelegram();
+        await Promise.all([
+            refreshEvent().catch(()=>{}),
+            refreshQueue().catch(()=>{}),
+            refreshMyVotes().catch(()=>{}),
+        ]);
+    }
+    init();
+</script>
+</body>
+</html>
