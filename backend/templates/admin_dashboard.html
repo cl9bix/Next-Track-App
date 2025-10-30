@@ -1,0 +1,95 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Admin · {{ club.name }}</title>
+    <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body>
+<header class="top">
+    <div class="container">
+        <div class="brand">
+            {% if club.logo_url %}<img src="{{ club.logo_url }}" class="logo" alt="{{ club.name }}">{% endif %}
+            <div>
+                <b>{{ club.name }}</b>
+                <div class="muted">@{{ club.tg_username }} · {{ club.slug }}</div>
+            </div>
+        </div>
+        <nav>
+            <a class="btn" href="/admin/events/new">+ New event</a>
+            <a class="btn secondary" href="/">User view</a>
+        </nav>
+    </div>
+</header>
+
+<main class="container wrap">
+    <div class="grid">
+        <!-- Events -->
+        <section class="panel">
+            <div class="head">
+                <h3 style="margin:0">Events</h3>
+                <span class="badge">{{ events|length }} total</span>
+            </div>
+            <div class="body">
+                <table class="tbl">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Start</th>
+                        <th>Links</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for e in events %}
+                    <tr>
+                        <td>#{{ e.id }}</td>
+                        <td>{{ e.title }}</td>
+                        <td>{{ e.start_date or '—' }}</td>
+                        <td>
+                            <a class="link" href="/api/v1/organizer/events/{{ e.id }}/qr" target="_blank">Deep link</a>
+                            &nbsp;·&nbsp;
+                            <a class="link" href="/webapp/index.html?start=event_{{ e.id }}" target="_blank">Open WebApp</a>
+                        </td>
+                        <td style="text-align:right">
+                            <a class="btn secondary" href="/organisator/events/{{ e.id }}">Open</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="muted">No events yet.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Club Info -->
+        <section class="panel">
+            <div class="head"><h3 style="margin:0">Club</h3></div>
+            <div class="body">
+                <div class="kv">
+                    <span class="k">Name</span><span>{{ club.name }}</span>
+                </div>
+                <div class="kv" style="margin-top:10px">
+                    <span class="k">Telegram</span><span>@{{ club.tg_username }}</span>
+                </div>
+                {% if club.site_url %}
+                <div class="kv" style="margin-top:10px">
+                    <span class="k">Website</span><a class="link" href="{{ club.site_url }}" target="_blank">{{ club.site_url }}</a>
+                </div>
+                {% endif %}
+                <div style="margin-top:14px">
+                    <span class="tag">tenant: {{ club.slug }}</span>
+                </div>
+            </div>
+        </section>
+    </div>
+</main>
+
+<footer class="foot">
+    © {{ (now() if now else None) or '' }} {{ club.name }} · Next Track Admin
+</footer>
+</body>
+</html>

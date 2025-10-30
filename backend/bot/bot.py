@@ -1,29 +1,21 @@
-import asyncio, logging
-from aiogram import Bot, Dispatcher, F
-from aiogram.filters import CommandStart
-from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+import os
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from dotenv import load_dotenv
 load_dotenv()
-import os
-bot = Bot(token=os.getenv('BOT_TOKEN'))
-dp = Dispatcher()
 
-@dp.message(CommandStart(deep_link=True))
-async def start(message: Message):
-    payload = message.text.split(maxsplit=1)[-1].replace("/start", "").strip()
-    if payload.startswith("event_"):
-        token = payload[len("event_"):]
-        url = f"https://your-host/webapp/index.html?start=event_{token}"
-        kb = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="Open Next Track", web_app=WebAppInfo(url=url))
-        ]])
-        await message.answer("Open WebApp to vote 👇", reply_markup=kb)
-    else:
-        await message.answer("Send me a QR from the club to join the event.")
+BOT_TOKEN = "8399376497:AAFt0RfpefTQaSX8TAWoCCL0_V7Xi3-bvFw"
+WEBAPP_URL = "https://9c199927d497.ngrok-free.app/"
 
-async def main():
-    logging.basicConfig(level=logging.INFO)
-    await dp.start_polling(bot)
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("Open WebApp", web_app=WebAppInfo(url=WEBAPP_URL))]
+    ]
+    await update.message.reply_text(
+        "Welcome to Next Track!", reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
-if __name__ == "__main__":
-    asyncio.run(main())
+app = ApplicationBuilder().token(BOT_TOKEN).build()
+app.add_handler(CommandHandler("start", start))
+
+app.run_polling()

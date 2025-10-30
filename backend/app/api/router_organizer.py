@@ -11,7 +11,10 @@ from app.crud.event_crud import (
     current_round, end_round_and_start_next
 )
 
-router = APIRouter(prefix="/api/v1/organizer", tags=["organizer"])
+from app.crud import organisator_crud
+from app.schemas.schemas import OrganisatorCreate, OrganisatorResponse
+
+router = APIRouter(prefix="/api/v1/organisator", tags=["organisator"])
 
 
 async def require_organizer(
@@ -28,6 +31,16 @@ async def require_organizer(
                     "Якщо ви зацікавлені в інтеграції — напишіть @cl9bix."),
         )
     return org
+
+
+@router.post("/", response_model=OrganisatorResponse, status_code=201)
+async def create_organisator(payload: OrganisatorCreate, db: AsyncSession = Depends(get_async_session)):
+    return await organisator_crud.create_organisator(db, payload)
+
+
+@router.get('/all', response_model=OrganisatorResponse, status_code=200)
+async def all_organisators(db: AsyncSession = Depends(get_async_session)):
+    return await organisator_crud.get_all_organisators(db)
 
 
 @router.get("/events", response_model=list[EventResponse])

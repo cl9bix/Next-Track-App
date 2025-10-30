@@ -107,11 +107,27 @@
         .hidden{display:none!important}
         .muted{color:var(--muted)}
 
-        /* === Autocomplete === */
+        /* === Autocomplete (під інпутом) === */
         .ac{position:relative}
-        .ac-list{position:absolute; inset:auto 0 0 0; transform:translateY(8px);
-            background:rgba(255,255,255,.08); border:1px solid var(--border); border-radius:12px;
-            backdrop-filter:blur(8px); box-shadow:var(--shadow); z-index:50; max-height:320px; overflow:auto}
+        .ac-list{
+            position:absolute;
+            top:100%;
+            left:0;
+            right:0;
+            margin-top:8px;
+
+            background:rgba(255,255,255,.08);
+            border:1px solid var(--border);
+            border-radius:12px;
+            backdrop-filter:blur(8px);
+            box-shadow:var(--shadow);
+            z-index:1000;
+
+            max-height:40vh;
+            overflow:auto;
+            overscroll-behavior:contain;
+            -webkit-overflow-scrolling:touch;
+        }
         .ac-item{display:flex; gap:10px; padding:10px; align-items:center; cursor:pointer}
         .ac-item:hover{background:rgba(255,255,255,.10)}
         .ac-cover{width:40px; height:40px; border-radius:8px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); background-size:cover; background-position:center}
@@ -127,7 +143,7 @@
     <header>
         <div class="container topbar">
             <div class="brand">
-                <img src="logo.jpg" alt="Next Track" />
+                <img src="../static/logo.jpg" alt="Next Track" />
                 <div>
                     <b>Next Track</b><div class="sub muted i18n" data-key="subtitle_en">Vote & suggest in real time</div>
                     <div class="sub muted i18n hidden" data-key="subtitle_ru">Голосуй и предлагай в реальном времени</div>
@@ -560,26 +576,22 @@
         }, 350);
     }
 
-    // Клік по підказці -> відправити DJ (title + artist)
     acBox.addEventListener('click', async (e)=>{
         const item = e.target.closest('.ac-item'); if(!item) return;
         const title = decodeURIComponent(item.dataset.title || '');
-        theArtist = decodeURIComponent(item.dataset.artist || '');
+        const artist = decodeURIComponent(item.dataset.artist || '');
         hideAC();
         if(!EVENT_ID){ alert('No event selected'); return; }
         try{
-            await postJSON(EP.suggest(EVENT_ID), { title, artist: theArtist });
+            await postJSON(EP.suggest(EVENT_ID), { title, artist });
             selectTab('queue');
             await refreshQueue();
         }catch(err){ console.error(err); alert('Send to DJ failed'); }
     });
 
-    // Закривати список по Escape / blur
     qInput.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') hideAC(); });
-    function hideAC(){ acBox.classList.add('hidden'); acBox.innerHTML=''; } // ensure available for add-click
     qInput.addEventListener('blur', ()=>{ setTimeout(hideAC, 120); });
 
-    // ====== INIT ======
     async function init(){
         const isInTG = !!window.Telegram?.WebApp?.initData;
         if(isInTG){

@@ -11,6 +11,7 @@ class DjCreate(BaseModel):
     name: str
     telegram_id: int
 
+
 class DjResponse(BaseModel):
     id: int
     name: str

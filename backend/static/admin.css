@@ -1,0 +1,91 @@
+:root{
+    --bg:#0b0720; --bg2:#0a081c;
+    --panel:#12102a; --glass:rgba(255,255,255,.06);
+    --txt:#f0eff6; --muted:#b8b6d3;
+    --border:rgba(255,255,255,.12);
+    --accent1:#4dd0ff; --accent2:#ff4dd2; --ok:#77f2a1; --warn:#ffd166; --err:#ff6b6b;
+    --shadow:0 14px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
+    --radius:14px; --radius-lg:18px; --maxw:1100px;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+    margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;
+    color:var(--txt); background:
+        radial-gradient(55vw 55vw at 15% 10%, rgba(77,208,255,.18), transparent 60%),
+        radial-gradient(45vw 45vw at 90% 0%, rgba(255,77,210,.16), transparent 60%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+
+a{color:inherit; text-decoration:none}
+.container{width:100%; max-width:var(--maxw); margin:0 auto; padding:0 18px}
+
+/* Top */
+.top{
+    position:sticky; top:0; z-index:10;
+    background:linear-gradient(180deg, rgba(8,5,26,.65), rgba(8,5,26,.2));
+    backdrop-filter:saturate(140%) blur(10px);
+    border-bottom:1px solid var(--border);
+}
+.top>.container{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 0}
+.brand{display:flex; align-items:center; gap:12px}
+.brand .logo{width:36px; height:36px; border-radius:9px; object-fit:cover; border:1px solid var(--border); box-shadow:var(--shadow)}
+.brand b{letter-spacing:.2px}
+.muted{color:var(--muted); font-size:13px}
+
+/* Buttons */
+.btn{
+    display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none;
+    border:1px solid var(--border); background:linear-gradient(135deg, rgba(77,208,255,.14), rgba(255,77,210,.14));
+    padding:10px 14px; border-radius:999px; font-weight:800; letter-spacing:.2px; transition:transform .15s ease, border-color .2s ease
+}
+.btn:hover{transform:translateY(-1px); border-color:rgba(255,255,255,.26)}
+.btn.secondary{background:var(--glass)}
+.btn.danger{background:rgba(255,107,107,.16); border-color:rgba(255,107,107,.35)}
+.link{color:#dce9ff; border-bottom:1px dashed rgba(221,235,255,.35)}
+
+/* Layout */
+.wrap{padding:20px 0 56px}
+.panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius-lg);
+    box-shadow:var(--shadow); overflow:hidden
+}
+.panel .head{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border)}
+.panel .body{padding:16px}
+
+/* Tables */
+.tbl{width:100%; border-collapse:separate; border-spacing:0}
+.tbl thead th{
+    text-align:left; font-size:12px; letter-spacing:.2px; color:var(--muted);
+    padding:10px 12px; background:rgba(255,255,255,.04)
+}
+.tbl tbody td{padding:12px; border-top:1px solid var(--border)}
+.tbl tbody tr:hover{background:rgba(255,255,255,.04)}
+.badge{display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:6px 8px; border-radius:999px; background:rgba(255,255,255,.06); border:1px solid var(--border)}
+.badge.ok{background:rgba(119,242,161,.12); border-color:rgba(119,242,161,.35)}
+.badge.warn{background:rgba(255,209,102,.12); border-color:rgba(255,209,102,.35)}
+
+/* Forms */
+.form{display:grid; gap:14px; max-width:620px}
+.form label{display:grid; gap:6px; font-weight:700; font-size:14px}
+.input, .select, .area{
+    background:rgba(255,255,255,.06); border:1px solid var(--border); color:var(--txt);
+    border-radius:12px; padding:12px 14px; outline:none;
+}
+.input:focus, .select:focus, .area:focus{border-color:rgba(255,255,255,.28)}
+.row{display:flex; gap:10px; flex-wrap:wrap}
+.grow{flex:1 1 220px}
+
+/* Grid */
+.grid{display:grid; gap:16px}
+@media(min-width:920px){ .grid{grid-template-columns:1.1fr .9fr} }
+
+/* Footer */
+.foot{padding:18px 0 46px; text-align:center; color:var(--muted); font-size:12px}
+
+/* Tiny helpers */
+.kv{display:grid; gap:4px}
+.k{color:var(--muted); font-size:12px}
+.tag{font-size:11px; padding:4px 8px; border-radius:999px; background:rgba(77,208,255,.16); border:1px solid rgba(255,255,255,.18)}
