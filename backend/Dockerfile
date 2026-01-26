@@ -17,4 +17,4 @@ COPY . .
 
 EXPOSE 8000
 # adjust to your app module path
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8100", "--reload"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8110", "--reload"]
