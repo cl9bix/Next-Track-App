@@ -22,7 +22,7 @@ services:
     image: redis:7-alpine
     container_name: next-track-redis
     ports:
-      - "6379:6379"
+      - "6380:6380"
     command: ["redis-server", "--appendonly", "yes"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -62,12 +62,12 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      - "8100:8100"
     volumes:
       - ./backend:/backend
     working_dir: /backend
     command: >
-      uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      uvicorn main:app --host 0.0.0.0 --port 8100 --reload
     networks: [crm_network]
 
 volumes:
