@@ -40,7 +40,7 @@ async def create_organisator(payload: OrganisatorCreate, db: AsyncSession = Depe
 
 @router.get('/all', response_model=OrganisatorResponse, status_code=200)
 async def all_organisators(db: AsyncSession = Depends(get_async_session)):
-    return await organisator_crud.get_all_organisators(db)
+    return await organisator_crud.list_all(db)
 
 
 @router.get("/events", response_model=list[EventResponse])

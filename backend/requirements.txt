@@ -42,3 +42,4 @@ python-jose
 psycopg2-binary
 python-multipart
 python-telegram-bot
+uvicorn[standard]

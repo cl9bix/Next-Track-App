@@ -65,12 +65,10 @@ class RedisBus:
             # залишаємо на reader cleanup
             pass
 
-# choose implementation
 if settings.REDIS_URL:
     bus = RedisBus(settings.REDIS_URL)
 else:
     bus = LocalBus()
 
-# helper
 async def publish_event(event_id: int, payload: dict):
     await bus.publish(f"event:{event_id}", payload)

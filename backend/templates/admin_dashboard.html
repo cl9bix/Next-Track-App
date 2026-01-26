@@ -1,95 +1,73 @@
 <!doctype html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Admin · {{ club.name }}</title>
-    <link rel="stylesheet" href="/static/admin.css">
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Admin — Dashboard</title>
+    <style>
+        body{font-family:system-ui,Arial; margin:0; background:#0b0720; color:#f0eff6}
+        .wrap{max-width:900px; margin:0 auto; padding:18px}
+        .card{background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:14px; margin:12px 0}
+        a.btn{display:inline-block; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18)}
+        table{width:100%; border-collapse:collapse}
+        th,td{padding:10px; border-bottom:1px solid rgba(255,255,255,.10); text-align:left}
+        .muted{opacity:.75}
+    </style>
 </head>
 <body>
-<header class="top">
-    <div class="container">
-        <div class="brand">
-            {% if club.logo_url %}<img src="{{ club.logo_url }}" class="logo" alt="{{ club.name }}">{% endif %}
-            <div>
-                <b>{{ club.name }}</b>
-                <div class="muted">@{{ club.tg_username }} · {{ club.slug }}</div>
-            </div>
+<div class="wrap">
+    <h2>🏁 Admin panel</h2>
+    <div class="card">
+        <div><b>Club:</b> {{ club.name }} <span class="muted">(#{{ club.id }})</span></div>
+        <div><b>Admin:</b> {{ admin.display_name }} <span class="muted">(tg: {{ admin.telegram_id }})</span></div>
+        <div style="margin-top:12px">
+            <a class="btn" href="/admin/events/new">＋ Create event</a>
         </div>
-        <nav>
-            <a class="btn" href="/admin/events/new">+ New event</a>
-            <a class="btn secondary" href="/">User view</a>
-        </nav>
     </div>
-</header>
 
-<main class="container wrap">
-    <div class="grid">
-        <!-- Events -->
-        <section class="panel">
-            <div class="head">
-                <h3 style="margin:0">Events</h3>
-                <span class="badge">{{ events|length }} total</span>
-            </div>
-            <div class="body">
-                <table class="tbl">
-                    <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Title</th>
-                        <th>Start</th>
-                        <th>Links</th>
-                        <th></th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {% for e in events %}
-                    <tr>
-                        <td>#{{ e.id }}</td>
-                        <td>{{ e.title }}</td>
-                        <td>{{ e.start_date or '—' }}</td>
-                        <td>
-                            <a class="link" href="/api/v1/organizer/events/{{ e.id }}/qr" target="_blank">Deep link</a>
-                            &nbsp;·&nbsp;
-                            <a class="link" href="/webapp/index.html?start=event_{{ e.id }}" target="_blank">Open WebApp</a>
-                        </td>
-                        <td style="text-align:right">
-                            <a class="btn secondary" href="/organisator/events/{{ e.id }}">Open</a>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr><td colspan="5" class="muted">No events yet.</td></tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Club Info -->
-        <section class="panel">
-            <div class="head"><h3 style="margin:0">Club</h3></div>
-            <div class="body">
-                <div class="kv">
-                    <span class="k">Name</span><span>{{ club.name }}</span>
-                </div>
-                <div class="kv" style="margin-top:10px">
-                    <span class="k">Telegram</span><span>@{{ club.tg_username }}</span>
-                </div>
-                {% if club.site_url %}
-                <div class="kv" style="margin-top:10px">
-                    <span class="k">Website</span><a class="link" href="{{ club.site_url }}" target="_blank">{{ club.site_url }}</a>
-                </div>
-                {% endif %}
-                <div style="margin-top:14px">
-                    <span class="tag">tenant: {{ club.slug }}</span>
-                </div>
-            </div>
-        </section>
+    <div class="card">
+        <h3 style="margin:0 0 10px 0">Events</h3>
+        {% if events and events|length %}
+        <table>
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Start</th>
+                <th>End</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for e in events %}
+            <tr>
+                <td>#{{ e.id }}</td>
+                <td>{{ e.title }}</td>
+                <td class="muted">{{ e.start_date or "—" }}</td>
+                <td class="muted">{{ e.end_date or "—" }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="muted">No events yet.</div>
+        {% endif %}
     </div>
-</main>
+</div>
 
-<footer class="foot">
-    © {{ (now() if now else None) or '' }} {{ club.name }} · Next Track Admin
-</footer>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+    // auto-login via Telegram WebApp initData -> set cookie
+    (async function(){
+        const tg = window.Telegram?.WebApp;
+        if(!tg?.initData) return;
+        try{
+            await fetch('/admin/session', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({init_data: tg.initData})
+            });
+        }catch(e){}
+    })();
+</script>
 </body>
 </html>

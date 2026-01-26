@@ -6,7 +6,6 @@
     <title>Next Track — User</title>
     <meta name="description" content="Next Track — User view: vote, suggest, see what's next." />
 
-    <!-- ✅ Simple prod hardening -->
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta http-equiv="Cache-Control" content="no-store" />
     <link rel="preconnect" href="https://api.telegram.org" crossorigin>
@@ -49,7 +48,7 @@
         .now{margin:14px 0 6px}
         .card{background:var(--glass); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
         .now .inner{display:flex; gap:14px; padding:14px}
-        .cover{width:62px; height:62px; border-radius:14px; background:linear-gradient(135deg,var(--accent1),var(--accent2))}
+        .cover{width:62px; height:62px; border-radius:14px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); background-size:cover; background-position:center}
         .meta{display:flex; flex-direction:column; gap:6px; min-width:0}
         .title{font-weight:900; font-size:18px}
         .sub{color:var(--muted)}
@@ -69,16 +68,17 @@
 
         .list{display:flex; flex-direction:column; gap:10px; padding:12px}
         .row{display:flex; gap:12px; align-items:center; padding:12px; border-radius:14px; background:rgba(255,255,255,.06); border:1px solid var(--border)}
-        .row .art{width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,var(--accent1),var(--accent2))}
+        .row .art{width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); background-size:cover; background-position:center}
         .row .body{flex:1 1 auto; min-width:0}
         .row .name{font-weight:800}
         .row .note{color:var(--muted); font-size:12px}
-        .row .bar{--p:50%; --t:40%; position:relative; height:8px; border-radius:999px; background:rgba(255,255,255,.09); overflow:hidden; margin-top:6px}
+        .row .bar{--p:0%; --t:0%; position:relative; height:8px; border-radius:999px; background:rgba(255,255,255,.09); overflow:hidden; margin-top:6px}
         .row .bar span.v{position:absolute; inset:0 auto 0 0; width:var(--p); background:linear-gradient(90deg,var(--accent1), #a1e1ff); transition:width .35s cubic-bezier(.2,.7,.2,1)}
         .row .bar span.t{position:absolute; inset:0 auto 0 0; width:var(--t); background:linear-gradient(90deg,var(--accent2), #ff9de6); opacity:.9; transition:width .35s cubic-bezier(.2,.7,.2,1)}
         .vote{border:none; padding:10px 12px; border-radius:12px; font-weight:900; background:linear-gradient(135deg, rgba(77,208,255,.18), rgba(255,77,210,.18)); border:1px solid rgba(255,255,255,.22); cursor:pointer}
         .vote.voted{position:relative; color:#0b0720; background:linear-gradient(135deg, rgba(119,242,161,.9), rgba(77,208,255,.65)); border-color:rgba(255,255,255,.4)}
         .vote.voted:after{content:"✓"; font-weight:900; margin-left:6px}
+        .vote[disabled]{opacity:.55; cursor:not-allowed}
 
         .search{padding:12px}
         .field{display:flex; gap:8px}
@@ -107,7 +107,7 @@
         .hidden{display:none!important}
         .muted{color:var(--muted)}
 
-        /* === Autocomplete (під інпутом) === */
+        /* Autocomplete */
         .ac{position:relative}
         .ac-list{
             position:absolute;
@@ -115,14 +115,12 @@
             left:0;
             right:0;
             margin-top:8px;
-
             background:rgba(255,255,255,.08);
             border:1px solid var(--border);
             border-radius:12px;
             backdrop-filter:blur(8px);
             box-shadow:var(--shadow);
             z-index:1000;
-
             max-height:40vh;
             overflow:auto;
             overscroll-behavior:contain;
@@ -135,6 +133,7 @@
         .ac-sub{font-size:12px; color:var(--muted)}
     </style>
 </head>
+
 <body>
 <div class="bg"></div>
 <div class="blob b1"></div><div class="blob b2"></div>
@@ -145,10 +144,12 @@
             <div class="brand">
                 <img src="../static/logo.jpg" alt="Next Track" />
                 <div>
-                    <b>Next Track</b><div class="sub muted i18n" data-key="subtitle_en">Vote & suggest in real time</div>
+                    <b>Next Track</b>
+                    <div class="sub muted i18n" data-key="subtitle_en">Vote & suggest in real time</div>
                     <div class="sub muted i18n hidden" data-key="subtitle_ru">Голосуй и предлагай в реальном времени</div>
                 </div>
             </div>
+
             <div style="display:flex; gap:8px; align-items:center">
                 <span class="event-pill">🎧 <span id="djName">...</span> • <span id="eventName">...</span></span>
                 <div class="lang-toggle">
@@ -164,14 +165,15 @@
             <!-- Now playing -->
             <section class="now card">
                 <div class="inner">
-                    <div class="cover" aria-hidden="true"></div>
+                    <div class="cover" id="nowCover" aria-hidden="true"></div>
                     <div class="meta" style="flex:1 1 auto">
                         <div class="title" id="nowTitle">—</div>
                         <div class="sub muted i18n" data-key="now_en">Now playing</div>
                         <div class="sub muted i18n hidden" data-key="now_ru">Сейчас играет</div>
                         <div class="bars"><span></span></div>
+                        <div class="sub muted" id="nowTimer">—</div>
                     </div>
-                    <div class="live">LIVE</div>
+                    <div class="live" id="liveBadge">LIVE</div>
                 </div>
             </section>
 
@@ -207,6 +209,7 @@
                             <div class="muted" id="userId"></div>
                         </div>
                     </div>
+
                     <div class="rower" style="justify-content:space-between">
                         <div class="kv">
                             <div class="k i18n" data-key="notif_en">Notifications</div>
@@ -216,7 +219,8 @@
                         </div>
                         <label class="switch"><input id="notifs" type="checkbox" class="tog"><span></span></label>
                     </div>
-                    <a class="btn" id="openTG" href="https://t.me/YourBotUsername?start=webapp" target="_blank" rel="noopener">Open in Telegram</a>
+
+                    <a class="btn" id="openTG" href="https://t.me/next_track_bot?start=webapp" target="_blank" rel="noopener">Open in Telegram</a>
                 </div>
             </section>
         </div>
@@ -232,29 +236,27 @@
     </nav>
 </div>
 
-<!-- Telegram WebApp SDK (optional if inside TG) -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
-    // ====== CONFIG ======
-    // const API_BASE = (window.__API_BASE__) || '/api';
-    const API_BASE = 'http://localhost:8000/api';
+    // ================== CONFIG ==================
+    // Put your public ngrok/https base here (no trailing slash)
+    const API_BASE = 'https://unsyncopated-shufflingly-gerald.ngrok-free.dev';
 
     const EP = {
-        authWebApp:  (initData) => `${API_BASE}/auth/telegram/webapp?init_data=${encodeURIComponent(initData)}`,
-        me:          () => `${API_BASE}/users/me`,
-        event:       (id) => `${API_BASE}/events/${id}`,
-        queue:       (id) => `${API_BASE}/events/${id}/queue`,
-        vote:        (id) => `${API_BASE}/events/${id}/vote`,      // POST {track_id}
-        suggest:     (id) => `${API_BASE}/events/${id}/suggest`,   // POST {title, artist}
-        myVotes:     (id) => `${API_BASE}/events/${id}/my-votes`,
-        search:      (q,limit=15) => `${API_BASE}/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+        authWebApp: (initData) => `${API_BASE}/auth/telegram/webapp?init_data=${encodeURIComponent(initData)}`,
+        event:      (id) => `${API_BASE}/api/events/${id}`,
+        queue:      (id) => `${API_BASE}/api/events/${id}/queue`,
+        vote:       (id) => `${API_BASE}/api/events/${id}/vote`,
+        suggest:    (id) => `${API_BASE}/api/events/${id}/suggest`,
+        search:     (q,limit=15) => `${API_BASE}/search?q=${encodeURIComponent(q)}&limit=${limit}`,
     };
 
-    // ====== HELPERS ======
+    // ================== HELPERS ==================
     const $ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
     const byId = id => document.getElementById(id);
+
     const qs = new URLSearchParams(location.search);
-    const EVENT_ID = qs.get('event') || ''; // ?event=abcd123
+    const EVENT_ID = qs.get('event') || '1';
 
     const state = {
         token: null,
@@ -263,24 +265,43 @@
         queue: [],
         myVotes: new Set(),
         lang: localStorage.getItem('nt_user_lang') || 'en',
+        votingOpen: false,
+        voteClosesAt: 0,
+        trackEndsAt: 0,
     };
 
     function setAuth(token){ state.token = token; }
     function authHeaders(){
         return state.token ? { 'Authorization': `Bearer ${state.token}` } : {};
     }
+
     async function getJSON(url, opts={}){
-        const res = await fetch(url, { ...opts, headers:{ 'Accept':'application/json', ...(opts.headers||{}), ...authHeaders() } });
-        if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-        return await res.json();
-    }
-    async function postJSON(url, body){
-        const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json', ...authHeaders() }, body:JSON.stringify(body||{}) });
+        const res = await fetch(url, {
+            ...opts,
+            headers:{ 'Accept':'application/json', ...(opts.headers||{}), ...authHeaders() }
+        });
         if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         return await res.json();
     }
 
-    // ====== LANGUAGE ======
+    async function postJSON(url, body){
+        const res = await fetch(url, {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json', ...authHeaders() },
+            body: JSON.stringify(body||{})
+        });
+        if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        return await res.json();
+    }
+
+    function msToClock(s){
+        s = Math.max(0, Math.floor(s));
+        const m = Math.floor(s/60);
+        const r = s%60;
+        return `${m}:${String(r).padStart(2,'0')}`;
+    }
+
+    // ================== LANGUAGE ==================
     const langButtons = $('.lang-toggle button');
     function setLang(code){
         langButtons.forEach(b=>b.classList.toggle('active', b.dataset.lang===code));
@@ -298,7 +319,7 @@
     langButtons.forEach(b=>b.addEventListener('click', ()=>setLang(b.dataset.lang)));
     setLang(state.lang);
 
-    // ====== RENDER ======
+    // ================== UI RENDER ==================
     function renderUser(){
         const name = state.user?.tg_username ? '@'+state.user.tg_username : '@guest';
         byId('userName').textContent = name;
@@ -307,11 +328,16 @@
         if(img) byId('avatar').style.backgroundImage = `url("${img}")`;
     }
 
-    function renderEvent(){
-        if(!state.event) return;
-        byId('djName').textContent = state.event?.dj_name || 'DJ';
-        byId('eventName').textContent = state.event?.name || 'Event';
-        byId('nowTitle').textContent = state.event?.now_playing || '—';
+    function setNowPlaying(track){
+        const title = track ? `${track.title || '—'}${track.artist ? ' — ' + track.artist : ''}` : '—';
+        byId('nowTitle').textContent = title;
+
+        const cover = track?.cover_url || '';
+        if(cover){
+            byId('nowCover').style.backgroundImage = `url("${cover.replaceAll('"','%22')}")`;
+        }else{
+            byId('nowCover').style.backgroundImage = '';
+        }
     }
 
     function confettiAt(el){
@@ -331,37 +357,55 @@
     function renderQueue(){
         const qWrap = byId('queueList');
         qWrap.innerHTML = '';
-        const tracks = [...state.queue].sort((a,b)=> (b.votes??0)-(a.votes??0));
+
+        const tracks = [...state.queue];
+        if(!tracks.length){
+            qWrap.innerHTML = `<div class="empty">Queue is empty</div>`;
+            return;
+        }
+
         for(const t of tracks){
             const row = document.createElement('div');
             row.className = 'row';
-            const voted = state.myVotes.has(t.id);
-            const trend = t.trend ?? 0;
-            const votes = t.votes ?? 0;
+
+            const id = t.track_id || t.id;
+            const voted = state.myVotes.has(id);
+
+            const title = (t.title || t.name || 'Untitled');
+            const artist = (t.artist || '');
+            const cover = (t.cover_url || '');
+
+            const votes = Number(t.votes || 0);
+            const percent = Math.max(0, Math.min(100, votes)); // MVP визуал, позже нормализуем
+
             row.innerHTML = `
-        <div class="art" aria-hidden="true"></div>
+        <div class="art" style="${cover ? `background-image:url('${cover.replaceAll("'","%27")}')` : ''}" aria-hidden="true"></div>
         <div class="body">
-          <div class="name">${t.title || t.name || 'Untitled'}</div>
-          <div class="note">${t.note || ''}</div>
-          <div class="bar" style="--p:${Math.max(0,Math.min(100,votes))}%; --t:${Math.max(0,Math.min(100,trend))}%">
+          <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
+          <div class="note muted">${t.note || ''}</div>
+          <div class="bar" style="--p:${percent}%; --t:0%">
             <span class="v"></span><span class="t"></span>
           </div>
         </div>
-        <button class="vote ${voted?'voted':''}" data-id="${t.id}">${voted?'Voted':'Vote'}</button>
+        <button class="vote ${voted?'voted':''}" data-id="${id}" ${(!state.votingOpen || voted) ? 'disabled' : ''}>${voted?'Voted':'Vote'}</button>
       `;
             qWrap.appendChild(row);
         }
+
         qWrap.onclick = async (e)=>{
             const btn = e.target.closest('.vote'); if(!btn) return;
-            const id = btn.dataset.id; if(state.myVotes.has(id)) return;
+            const id = btn.dataset.id;
+            if(!state.votingOpen || state.myVotes.has(id)) return;
+
             try{
                 await postJSON(EP.vote(EVENT_ID), { track_id:id });
                 state.myVotes.add(id);
-                btn.classList.add('voted'); btn.textContent='Voted';
+                btn.classList.add('voted'); btn.textContent='Voted'; btn.disabled = true;
                 confettiAt(btn);
-                await refreshQueue();
-                await refreshMyVotes();
-            }catch(err){ console.error(err); alert('Vote failed'); }
+            }catch(err){
+                console.error(err);
+                alert('Vote failed');
+            }
         };
     }
 
@@ -369,77 +413,116 @@
         const box = byId('myVotes');
         const ids = Array.from(state.myVotes);
         if(!ids.length){
-            box.innerHTML = `<div class="empty i18n" data-key="empty_en">You have not voted yet.</div><div class="empty i18n hidden" data-key="empty_ru">Вы ещё не голосовали.</div>`;
+            box.innerHTML = `<div class="empty i18n" data-key="empty_en">You have not voted yet.</div>
+                       <div class="empty i18n hidden" data-key="empty_ru">Вы ещё не голосовали.</div>`;
+            // refresh visibility based on current language
+            setLang(state.lang);
             return;
         }
-        const picked = state.queue.filter(t=>ids.includes(t.id));
-        const rows = picked.map(t=>`
-      <div class="row">
-        <div class="art"></div>
-        <div class="body">
-          <div class="name">${t.title || t.name}</div>
-          <div class="note muted">${t.note||''}</div>
-          <div class="bar" style="--p:${t.votes??0}%; --t:${t.trend??0}%"><span class="v"></span><span class="t"></span></div>
-        </div>
-        <div class="vote voted">Voted</div>
-      </div>`).join('');
+
+        const picked = state.queue.filter(t=>{
+            const id = t.track_id || t.id;
+            return ids.includes(id);
+        });
+
+        const rows = picked.map(t=>{
+            const cover = t.cover_url || '';
+            const title = (t.title || t.name || 'Untitled');
+            const artist = (t.artist || '');
+            return `
+        <div class="row">
+          <div class="art" style="${cover ? `background-image:url('${cover.replaceAll("'","%27")}')` : ''}"></div>
+          <div class="body">
+            <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
+            <div class="note muted">${t.note||''}</div>
+            <div class="bar" style="--p:0%; --t:0%"><span class="v"></span><span class="t"></span></div>
+          </div>
+          <div class="vote voted">Voted</div>
+        </div>`;
+        }).join('');
+
         box.innerHTML = `<div class="list">${rows}</div>`;
     }
 
-    // ====== DATA FETCHERS ======
+    function updateNowTimer(){
+        const now = Math.floor(Date.now()/1000);
+        let text = '—';
+
+        if(state.votingOpen && state.voteClosesAt){
+            text = `Voting closes in: ${msToClock(state.voteClosesAt - now)}`;
+        }else if(state.trackEndsAt){
+            text = `Ends in: ${msToClock(state.trackEndsAt - now)}`;
+        }
+
+        byId('nowTimer').textContent = text;
+        requestAnimationFrame(()=>{}); // no-op, just keeps it smooth
+    }
+
+    // ================== DATA ==================
     async function refreshEvent(){
         if(!EVENT_ID) return;
-        state.event = await getJSON(EP.event(EVENT_ID));
-        renderEvent();
+        const data = await getJSON(EP.event(EVENT_ID));
+        state.event = data;
+
+        // state from backend
+        const st = data?.state || {};
+        state.votingOpen = (st.voting_open === "1");
+        state.voteClosesAt = Number(st.vote_closes_at || 0);
+        state.trackEndsAt = Number(st.track_ends_at || 0);
+
+        // now playing
+        // (we mostly update via WS, but on initial load we can try to show current track if backend sends it)
+        // If you later send track payload in /event response, set it here.
+        updateNowTimer();
     }
+
     async function refreshQueue(){
         if(!EVENT_ID) return;
         const data = await getJSON(EP.queue(EVENT_ID));
-        state.queue = Array.isArray(data) ? data : (data.items||[]);
+        state.queue = (data && data.items) ? data.items : [];
         renderQueue();
-    }
-    async function refreshMyVotes(){
-        if(!EVENT_ID) return;
-        try{
-            const data = await getJSON(EP.myVotes(EVENT_ID));
-            const ids = Array.isArray(data) ? data : (data.ids||[]);
-            state.myVotes = new Set(ids);
-        }catch{}
         renderMine();
     }
 
-    // ====== SUGGEST (ручний ввод) ======
+    // ================== SUGGEST ==================
     byId('add').addEventListener('click', async ()=>{
         const raw = byId('q').value.trim();
         if(!raw || !EVENT_ID) return;
+
+        // Parse "Track — Artist"
         const parts = raw.split(/ — | - | – /);
         const title = (parts[0]||'').trim();
         const artist = (parts[1]||'').trim();
+
         try{
             await postJSON(EP.suggest(EVENT_ID), { title, artist });
             byId('q').value='';
             hideAC();
             await refreshQueue();
             selectTab('queue');
-        }catch(err){ console.error(err); alert('Suggest failed'); }
+        }catch(err){
+            console.error(err);
+            alert('Suggest failed');
+        }
     });
 
-    // ====== PROFILE / NOTIFS (client only toggle) ======
+    // ================== PROFILE / NOTIFS ==================
     const tog = byId('notifs');
     tog.addEventListener('change', ()=>{ localStorage.setItem('nt_user_notifs', tog.checked?'1':'0'); });
     tog.checked = localStorage.getItem('nt_user_notifs')==='1';
 
-    // ====== BOTTOM NAV ======
+    // ================== BOTTOM NAV ==================
     function selectTab(id){
         $('.btab').forEach(b=>b.classList.toggle('active', b.dataset.target===id));
         $('.screen').forEach(s=>s.classList.toggle('active', s.id===id));
     }
     $('.btab').forEach(b=>b.addEventListener('click', ()=>selectTab(b.dataset.target)));
 
-    // ====== TELEGRAM AUTH (WebApp) ======
+    // ================== TELEGRAM AUTH ==================
     async function authViaTelegram(){
         const tg = window.Telegram?.WebApp;
-        if(!tg || !tg.initDataUnsafe?.user){ return null; }
+        if(!tg || !tg.initDataUnsafe?.user) return null;
+
         try{
             const res = await fetch(EP.authWebApp(tg.initData));
             if(!res.ok) throw new Error('auth failed');
@@ -457,9 +540,54 @@
         }
     }
 
-    // ====== AUTOCOMPLETE (онлайн пошук) — IME-safe + throttle + normalize ======
-    const acBox = document.getElementById('acList');
-    const qInput = document.getElementById('q');
+    // ================== WEBSOCKET ==================
+    function connectWS(){
+        if(!EVENT_ID) return;
+
+        const wsUrl = API_BASE.replace('https://','wss://') + `/ws/events/${EVENT_ID}`;
+        const ws = new WebSocket(wsUrl);
+
+        ws.onopen = ()=> console.log('[ws] connected');
+
+        ws.onmessage = (ev)=>{
+            try{
+                const msg = JSON.parse(ev.data);
+
+                if(msg.type === 'voting_open'){
+                    state.votingOpen = true;
+                    state.voteClosesAt = Number(msg.vote_closes_at || 0);
+                    refreshQueue().catch(()=>{});
+                }
+
+                if(msg.type === 'voting_closed'){
+                    state.votingOpen = false;
+                }
+
+                if(msg.type === 'track_started'){
+                    const track = msg.track || null;
+                    setNowPlaying(track);
+                    state.trackEndsAt = Number(msg.ends_at || 0);
+                    state.votingOpen = false;
+                    refreshQueue().catch(()=>{});
+                }
+
+                if(msg.type === 'vote' || msg.type === 'queue_added' || msg.type === 'track_finished'){
+                    refreshQueue().catch(()=>{});
+                }
+
+                updateNowTimer();
+            }catch(e){}
+        };
+
+        ws.onclose = ()=>{
+            console.log('[ws] closed, reconnecting...');
+            setTimeout(connectWS, 1500);
+        };
+    }
+
+    // ================== AUTOCOMPLETE (optional) ==================
+    const acBox = byId('acList');
+    const qInput = byId('q');
 
     let acTimer = null;
     let acCtrl = null;
@@ -467,7 +595,6 @@
     let isComposing = false;
     let skipNextInputAfterComposition = false;
 
-    // LRU-кеш до 50 ключів
     const acCache = new Map();
     function cacheGet(key){ return acCache.get(key); }
     function cacheSet(key,val){
@@ -476,7 +603,6 @@
         if(acCache.size>50){ acCache.delete(acCache.keys().next().value); }
     }
 
-    // Throttle однакових q (600мс)
     const sentAt = new Map();
     function canSend(q){
         const now = Date.now(), prev = sentAt.get(q)||0;
@@ -485,7 +611,6 @@
         return true;
     }
 
-    // Нормалізація до {id,title,artist,album,cover_url}
     function normalizeItems(raw){
         if(Array.isArray(raw)) return raw.map(normalizeOne);
         if(raw?.items && Array.isArray(raw.items)) return raw.items.map(normalizeOne);
@@ -499,13 +624,11 @@
     function normalizeOne(it){
         const id = it.id || it.trackId || it.key || cryptoRandomId();
         const title = firstNonEmpty(it.title, it.name, it.trackName, it.song, it.track, it.label);
-        const artist = firstNonEmpty(
-            it.artist, it.artistName, it.author, it.singer,
-            Array.isArray(it.artists) && it.artists.length ? (it.artists[0].name || it.artists[0].title || it.artists[0]) : ''
-        );
+        const artist = firstNonEmpty(it.artist, it.artistName, it.author, it.singer);
         const album = firstNonEmpty(it.album, it.albumName, it.collectionName);
-        const cover = firstNonEmpty(it.cover_url, it.thumbnail, it.thumbnail_url, it.image, it.picture, it.artworkUrl100, it.artworkUrl60);
-        return { id, title: title || 'Untitled', artist, album, cover_url: cover || '' };
+        const cover = firstNonEmpty(it.cover_url, it.thumbnail, it.image, it.picture, it.artworkUrl100, it.artworkUrl60);
+        const duration_sec = Number(it.duration_sec || it.duration || 0) || null;
+        return { id, title: title || 'Untitled', artist, album, cover_url: cover || '', duration_sec };
     }
     function cryptoRandomId(){
         try{ const a = new Uint32Array(2); crypto.getRandomValues(a); return 'x'+a[0].toString(36)+a[1].toString(36); }
@@ -536,18 +659,22 @@
     function showAC(items){
         acBox.innerHTML = items.length
             ? items.map(it=>`
-            <div class="ac-item" data-title="${encodeURIComponent(it.title||'')}" data-artist="${encodeURIComponent(it.artist||'')}" data-id="${it.id}">
-              <div class="ac-cover" style="background-image:url('${(it.cover_url||'').replaceAll('"','%22')}')"></div>
-              <div>
-                <div class="ac-title">${(it.title||'Untitled')}</div>
-                <div class="ac-sub">${(it.artist||'')}${it.album ? ' — '+it.album : ''}</div>
-              </div>
-            </div>`).join('')
+          <div class="ac-item"
+               data-title="${encodeURIComponent(it.title||'')}"
+               data-artist="${encodeURIComponent(it.artist||'')}"
+               data-id="${encodeURIComponent(it.id||'')}"
+               data-cover="${encodeURIComponent(it.cover_url||'')}"
+               data-dur="${encodeURIComponent(String(it.duration_sec||''))}">
+            <div class="ac-cover" style="background-image:url('${(it.cover_url||'').replaceAll('"','%22')}')"></div>
+            <div>
+              <div class="ac-title">${(it.title||'Untitled')}</div>
+              <div class="ac-sub">${(it.artist||'')}${it.album ? ' — '+it.album : ''}</div>
+            </div>
+          </div>`).join('')
             : `<div class="ac-item" style="opacity:.7; cursor:default">No results</div>`;
         acBox.classList.remove('hidden');
     }
 
-    // IME підтримка
     qInput.addEventListener('compositionstart', ()=>{ isComposing = true; });
     qInput.addEventListener('compositionend',   ()=>{
         isComposing = false;
@@ -578,20 +705,31 @@
 
     acBox.addEventListener('click', async (e)=>{
         const item = e.target.closest('.ac-item'); if(!item) return;
+
         const title = decodeURIComponent(item.dataset.title || '');
         const artist = decodeURIComponent(item.dataset.artist || '');
+        const id = decodeURIComponent(item.dataset.id || '');
+        const cover_url = decodeURIComponent(item.dataset.cover || '');
+        const duration_sec = Number(decodeURIComponent(item.dataset.dur || '')) || null;
+
         hideAC();
-        if(!EVENT_ID){ alert('No event selected'); return; }
+
         try{
-            await postJSON(EP.suggest(EVENT_ID), { title, artist });
+            // send full track payload -> backend can create track_id + store to redis
+            await postJSON(EP.suggest(EVENT_ID), { title, artist, track_id: id, cover_url, duration_sec });
             selectTab('queue');
+            qInput.value = '';
             await refreshQueue();
-        }catch(err){ console.error(err); alert('Send to DJ failed'); }
+        }catch(err){
+            console.error(err);
+            alert('Send failed');
+        }
     });
 
     qInput.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') hideAC(); });
     qInput.addEventListener('blur', ()=>{ setTimeout(hideAC, 120); });
 
+    // ================== INIT ==================
     async function init(){
         const isInTG = !!window.Telegram?.WebApp?.initData;
         if(isInTG){
@@ -599,14 +737,13 @@
             try { window.Telegram.WebApp.expand(); } catch{}
         }
 
-        if(!EVENT_ID){ byId('eventName').textContent='No event'; }
-
         await authViaTelegram();
-        await Promise.all([
-            refreshEvent().catch(()=>{}),
-            refreshQueue().catch(()=>{}),
-            refreshMyVotes().catch(()=>{}),
-        ]);
+        await refreshEvent().catch(()=>{});
+        await refreshQueue().catch(()=>{});
+        connectWS();
+
+        // timer loop
+        setInterval(updateNowTimer, 500);
     }
     init();
 </script>
