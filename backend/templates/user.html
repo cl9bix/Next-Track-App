@@ -237,20 +237,19 @@
 <script>
   // ================== CONFIG ==================
   // REST API base:
-  const API_BASE = 'https://next-track.fun/api/v1';
-
+  const API_BASE = "https://next-track.fun/api/v1";
   const WS_BASE  = 'wss://next-track.fun';
 
-  const EP = {
-    authWebApp: (initData) => `${API_BASE}/auth/telegram/webapp?init_data=${encodeURIComponent(initData)}`,
 
-    // ✅ slug-based
-    event:   (slug) => `${API_BASE}/events/${encodeURIComponent(slug)}`,
-    queue:   (slug) => `${API_BASE}/events/${encodeURIComponent(slug)}/queue`,
-    vote:    (slug) => `${API_BASE}/events/${encodeURIComponent(slug)}/vote`,
-    suggest: (slug) => `${API_BASE}/events/${encodeURIComponent(slug)}/suggest`,
-    search:  (q,limit=15) => `${API_BASE}/search?q=${encodeURIComponent(q)}&limit=${limit}`,
-  };
+  const EP = {
+  authWebApp: (initData) => `${API_BASE}/auth/telegram/webapp?init_data=${encodeURIComponent(initData)}`,
+  event:      (slug)     => `${API_BASE}/events/${encodeURIComponent(slug)}`,
+  queue:      (slug)     => `${API_BASE}/events/${encodeURIComponent(slug)}/queue`,
+  vote:       (slug)     => `${API_BASE}/events/${encodeURIComponent(slug)}/vote`,
+  suggest:    (slug)     => `${API_BASE}/events/${encodeURIComponent(slug)}/suggest`,
+  search:     (q,limit=15)=> `${API_BASE}/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+};
+
 
   // ================== HELPERS ==================
   const $ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
