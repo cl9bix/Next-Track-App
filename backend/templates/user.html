@@ -259,7 +259,12 @@
 
   // ✅ event slug from query: ?event=event_kaif (or any slug)
   const qs = new URLSearchParams(location.search);
-  const EVENT_SLUG = qs.get('event');
+
+const EVENT_SLUG =
+  qs.get('event') ||
+  qs.get('tgWebAppStartParam') ||
+  window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+
 
   if (!EVENT_SLUG) {
     location.replace('/404');
