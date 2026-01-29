@@ -16,7 +16,6 @@ from app.api.router_admin_panel import router as admin_router
 app = FastAPI(title="Next Track API")
 
 ALLOWED_ORIGINS = [
-    "https://unsyncopated-shufflingly-gerald.ngrok-free.dev",
     "http://localhost:5500",
     "http://127.0.0.1:5500",
     "https://next-track.fun",
