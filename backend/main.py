@@ -36,7 +36,7 @@ templates = Jinja2Templates(directory="templates")
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     return templates.TemplateResponse("user.html", {"request": request})
-@app.get("404", response_class=HTMLResponse)
+@app.get("/404", response_class=HTMLResponse)
 async def not_found_page(request: Request):
     return templates.TemplateResponse("404.html", {"request": request})
 
