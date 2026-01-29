@@ -257,12 +257,14 @@
 
   // ✅ event slug from query: ?event=event_kaif (or any slug)
   const pathParts = location.pathname.split('/').filter(Boolean);
-  const EVENT_SLUG = pathParts[pathParts.length - 1];
+  const params = new URLSearchParams(location.search);
+  const EVENT_SLUG = params.get('tgWebAppStartParam');
 
     if (!EVENT_SLUG) {
       location.replace('/404');
       throw new Error('Missing event slug');
     }
+
 
   const state = {
     token: null,
