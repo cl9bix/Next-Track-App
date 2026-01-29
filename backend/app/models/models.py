@@ -1,14 +1,26 @@
+from __future__ import annotations
+
+import enum
+
 from sqlalchemy import (
-    Column, Integer, String, DateTime, ForeignKey, Index,
-    Boolean, BigInteger, UniqueConstraint, Enum
+    Column,
+    Integer,
+    String,
+    DateTime,
+    ForeignKey,
+    Index,
+    Boolean,
+    BigInteger,
+    UniqueConstraint,
+    Enum as SAEnum,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import JSONB
-import enum
 
 from app.models.session import Base
 
+
+# ===================== ENUMS =====================
 
 class AdminRole(str, enum.Enum):
     owner = "owner"
@@ -21,20 +33,27 @@ class EventStatus(str, enum.Enum):
     ended = "ended"
 
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, BigInteger, Index
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from app.models.session import Base
-
+# ===================== CLUB / ADMINS =====================
 
 class Club(Base):
     __tablename__ = "clubs"
+
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     slug = Column(String, unique=True, index=True)
 
-    admins = relationship("AdminUser", back_populates="club", cascade="all, delete-orphan")
-    events = relationship("Event", back_populates="club", cascade="all, delete-orphan")
+    admins = relationship(
+        "AdminUser",
+        back_populates="club",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    events = relationship(
+        "Event",
+        back_populates="club",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class AdminUser(Base):
@@ -42,15 +61,20 @@ class AdminUser(Base):
     Адмін панелі (owner/admin). Додаєш вручну.
     """
     __tablename__ = "admin_users"
+
     id = Column(Integer, primary_key=True)
 
-    telegram_id = Column(BigInteger, unique=True, index=True, nullable=True)  # можеш лишити optional
+    telegram_id = Column(BigInteger, unique=True, index=True, nullable=True)
     display_name = Column(String(120), nullable=True)
 
     username = Column(String(64), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
 
-    role = Column(Enum(AdminRole, name="admin_role"), nullable=False, server_default=AdminRole.admin.value)
+    role = Column(
+        SAEnum(AdminRole, name="admin_role"),
+        nullable=False,
+        server_default=AdminRole.admin.value,
+    )
 
     is_active = Column(Boolean, default=True, nullable=False)
 
@@ -60,8 +84,11 @@ class AdminUser(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+# ===================== EVENTS / DJS =====================
+
 class Event(Base):
     __tablename__ = "events"
+
     id = Column(Integer, primary_key=True)
     club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False)
 
@@ -74,12 +101,25 @@ class Event(Base):
 
     club = relationship("Club", back_populates="events")
 
-    djs = relationship("EventDJ", back_populates="event", cascade="all, delete-orphan")
+    # M2M через таблицю зв'язку
+    djs = relationship(
+        "EventDJ",
+        back_populates="event",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    # ✅ ВАЖЛИВО: бо Round.back_populates="rounds"
+    rounds = relationship(
+        "Round",
+        back_populates="event",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     __table_args__ = (
         Index("ix_events_club_start", "club_id", "start_date"),
     )
-
 
 
 class Dj(Base):
@@ -91,7 +131,12 @@ class Dj(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    events = relationship("EventDJ", back_populates="dj", cascade="all, delete-orphan")
+    events = relationship(
+        "EventDJ",
+        back_populates="dj",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class EventDJ(Base):
@@ -106,6 +151,13 @@ class EventDJ(Base):
     event = relationship("Event", back_populates="djs")
     dj = relationship("Dj", back_populates="events")
 
+    __table_args__ = (
+        Index("ix_event_djs_event", "event_id"),
+        Index("ix_event_djs_dj", "dj_id"),
+    )
+
+
+# ===================== ROUNDS / SONGS / VOTES =====================
 
 class Round(Base):
     __tablename__ = "rounds"
@@ -128,9 +180,25 @@ class Round(Base):
         passive_deletes=True,
     )
 
-    winner_song = relationship("Song", foreign_keys=[winner_song_id], uselist=False, post_update=True)
+    # ✅ щоб Vote міг мати relationship round (і тобі було зручно)
+    votes = relationship(
+        "Vote",
+        back_populates="round",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
-    __table_args__ = (Index("ix_round_event_number", "event_id", "number", unique=True),)
+    winner_song = relationship(
+        "Song",
+        foreign_keys=[winner_song_id],
+        uselist=False,
+        post_update=True,
+    )
+
+    __table_args__ = (
+        Index("ix_round_event_number", "event_id", "number", unique=True),
+        Index("ix_round_event", "event_id"),
+    )
 
 
 class User(Base):
@@ -141,7 +209,12 @@ class User(Base):
     notifications = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    votes = relationship("Vote", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    votes = relationship(
+        "Vote",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class Song(Base):
@@ -150,22 +223,25 @@ class Song(Base):
     id = Column(Integer, primary_key=True)
     round_id = Column(Integer, ForeignKey("rounds.id", ondelete="CASCADE"), nullable=False)
 
-    # MVP: назва + артист (краще ніж просто name)
     title = Column(String, nullable=False)
     artist = Column(String, nullable=True)
 
-    # якщо ти тягнеш з Deezer/iTunes — зручно зберегти source/id
-    source = Column(String(32), nullable=True)  # "deezer" | "itunes" | ...
-    source_id = Column(String(128), nullable=True)  # id у провайдера
+    source = Column(String(32), nullable=True)       # "deezer" | "itunes" | ...
+    source_id = Column(String(128), nullable=True)   # id у провайдера
     cover_url = Column(String(1024), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     round = relationship("Round", back_populates="songs")
-    votes = relationship("Vote", back_populates="song", cascade="all, delete-orphan", passive_deletes=True)
+
+    votes = relationship(
+        "Vote",
+        back_populates="song",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     __table_args__ = (
-        # щоб не додавали один і той самий трек 20 разів в раунд
         UniqueConstraint("round_id", "title", "artist", name="uq_song_round_title_artist"),
         Index("ix_song_round", "round_id"),
     )
@@ -187,7 +263,11 @@ class Vote(Base):
     user = relationship("User", back_populates="votes")
     song = relationship("Song", back_populates="votes")
 
+    # ✅ додали, щоб було симетрично Round.votes
+    round = relationship("Round", back_populates="votes")
+
     __table_args__ = (
         UniqueConstraint("user_id", "round_id", name="uq_vote_user_round"),
         Index("ix_votes_round_song", "round_id", "song_id"),
+        Index("ix_votes_user_round", "user_id", "round_id"),
     )
