@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -17,6 +17,9 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 templates = Jinja2Templates(directory="templates")
 
 
+# =========================
+# HELPERS
+# =========================
 def _parse_dt(s: str) -> Optional[datetime]:
     s = (s or "").strip()
     if not s:
@@ -28,10 +31,43 @@ def _parse_dt(s: str) -> Optional[datetime]:
     return dt
 
 
+def admin_to_dict(a: AdminUser) -> dict:
+    return {
+        "id": a.id,
+        "username": getattr(a, "username", None),
+        "display_name": getattr(a, "display_name", None),
+        "telegram_id": getattr(a, "telegram_id", None),
+        "role": getattr(getattr(a, "role", None), "value", getattr(a, "role", None)),
+        "club_id": getattr(a, "club_id", None),
+        "is_active": getattr(a, "is_active", None),
+        "created_at": a.created_at.isoformat() if getattr(a, "created_at", None) else None,
+    }
+
+
+def club_to_dict(c: Club) -> dict:
+    return {
+        "id": c.id,
+        "name": c.name,
+        "slug": c.slug,
+    }
+
+
+def event_to_dict(e: Event) -> dict:
+    # якщо треба JS на фронті — зручно мати
+    return {
+        "id": e.id,
+        "club_id": e.club_id,
+        "title": e.title,
+        "preview": e.preview,
+        "start_date": e.start_date.isoformat() if e.start_date else None,
+        "end_date": e.end_date.isoformat() if e.end_date else None,
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+    }
+
+
 # =========================
 # PAGES
 # =========================
-
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request, "error": None})
@@ -44,9 +80,9 @@ async def admin_login(
     password: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ):
-    admin = (await db.execute(
-        select(AdminUser).where(AdminUser.username == username)
-    )).scalar_one_or_none()
+    admin = (
+        await db.execute(select(AdminUser).where(AdminUser.username == username))
+    ).scalar_one_or_none()
 
     if not admin or not admin.is_active or not verify_password(password, admin.password_hash):
         return templates.TemplateResponse(
@@ -56,28 +92,33 @@ async def admin_login(
         )
 
     token = create_admin_token(admin)
+
     resp = RedirectResponse(url="/admin/", status_code=303)
     resp.set_cookie(
         "admin_token",
         token,
         httponly=True,
         samesite="lax",
-        secure=True,
+        secure=True,  # якщо локально без https — постав False
         max_age=60 * 60 * 12,
+        path="/",
     )
     return resp
 
 
 @router.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
-    """This page available only for George and begrenzt by ip"""
+    """
+    Заглушка під твій future-flow.
+    Якщо треба реально “тільки для George” — зробимо IP allowlist + basic password.
+    """
     return templates.TemplateResponse("register.html", {"request": request, "error": None})
 
 
 @router.get("/logout")
 async def admin_logout():
     resp = RedirectResponse(url="/admin/login", status_code=303)
-    resp.delete_cookie("admin_token")
+    resp.delete_cookie("admin_token", path="/")
     return resp
 
 
@@ -87,19 +128,34 @@ async def dashboard(
     me: AdminUser = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    club = (await db.execute(select(Club).where(Club.id == me.club_id))).scalar_one_or_none()
+    club = (
+        await db.execute(select(Club).where(Club.id == me.club_id))
+    ).scalar_one_or_none()
     if not club:
         raise HTTPException(404, "Club not found")
 
-    events = (await db.execute(
-        select(Event)
-        .where(Event.club_id == me.club_id)
-        .order_by(desc(Event.start_date).nullslast(), desc(Event.id))
-    )).scalars().all()
+    events = (
+        await db.execute(
+            select(Event)
+            .where(Event.club_id == me.club_id)
+            .order_by(desc(Event.start_date).nullslast(), desc(Event.id))
+        )
+    ).scalars().all()
+
+    # важливо: в шаблон — dict, щоб можна було робити |tojson
+    admin_dict = admin_to_dict(me)
+    club_dict = club_to_dict(club)
+    events_dict = [event_to_dict(e) for e in events]
 
     return templates.TemplateResponse(
         "admin_dashboard.html",
-        {"request": request, "admin": me, "club": club, "events": events},
+        {
+            "request": request,
+            "admin": admin_dict,
+            "club": club_dict,
+            "events": events,           # якщо рендериш Jinja циклом
+            "events_json": events_dict, # якщо треба в JS: {{ events_json|tojson }}
+        },
     )
 
 
@@ -112,7 +168,7 @@ async def new_event_form(
     djs = (await db.execute(select(Dj).order_by(Dj.name.asc()))).scalars().all()
     return templates.TemplateResponse(
         "admin_event_new.html",
-        {"request": request, "admin": me, "djs": djs, "error": None},
+        {"request": request, "admin": admin_to_dict(me), "djs": djs, "error": None},
     )
 
 
@@ -134,13 +190,27 @@ async def create_event(
         djs = (await db.execute(select(Dj).order_by(Dj.name.asc()))).scalars().all()
         return templates.TemplateResponse(
             "admin_event_new.html",
-            {"request": request, "admin": me, "djs": djs, "error": "Invalid date format (YYYY-MM-DD HH:MM)"},
+            {
+                "request": request,
+                "admin": admin_to_dict(me),
+                "djs": djs,
+                "error": "Invalid date format (YYYY-MM-DD HH:MM or ISO)",
+            },
+            status_code=400,
+        )
+
+    clean_title = title.strip()
+    if not clean_title:
+        djs = (await db.execute(select(Dj).order_by(Dj.name.asc()))).scalars().all()
+        return templates.TemplateResponse(
+            "admin_event_new.html",
+            {"request": request, "admin": admin_to_dict(me), "djs": djs, "error": "Title is required"},
             status_code=400,
         )
 
     ev = Event(
         club_id=me.club_id,
-        title=title.strip(),
+        title=clean_title,
         preview=(preview.strip() or None),
         start_date=sd,
         end_date=ed,
@@ -152,6 +222,8 @@ async def create_event(
     # прив'язка DJ до івенту
     if dj_ids:
         ids = [int(x) for x in dj_ids.split(",") if x.strip().isdigit()]
+        # уникнемо дубляжу
+        ids = list(dict.fromkeys(ids))
         for dj_id in ids:
             db.add(EventDJ(event_id=ev.id, dj_id=dj_id))
         await db.commit()
@@ -165,9 +237,11 @@ async def end_event(
     me: AdminUser = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    ev = (await db.execute(
-        select(Event).where(Event.id == event_id, Event.club_id == me.club_id)
-    )).scalar_one_or_none()
+    ev = (
+        await db.execute(
+            select(Event).where(Event.id == event_id, Event.club_id == me.club_id)
+        )
+    ).scalar_one_or_none()
 
     if not ev:
         raise HTTPException(404, "Event not found")
