@@ -253,13 +253,13 @@
     const byId = id => document.getElementById(id);
 
     const qs = new URLSearchParams(location.search);
-    const EVENT_ID = qs.get('event');
+    const EVENT_SLUG = qs.get('event');
 
     // ✅ no event => 404
-    if (!EVENT_ID) {
+    if (!EVENT_SLUG) {
         location.replace('/404');
         throw new Error('Missing ?event=');
-    }
+}
 
     const state = {
         token: null,
@@ -535,8 +535,8 @@
 
     // ================== WEBSOCKET ==================
     function connectWS(){
-        const wsBase = API_BASE.replace('https://','wss://').replace('http://','ws://');
-        const wsUrl = wsBase + `/ws/events/${EVENT_ID}`;
+        const wsBase = API_BASE
+        const wsUrl = wsBase + `/events/${EVENT_SLUG}`;
         const ws = new WebSocket(wsUrl);
 
         ws.onmessage = (ev)=>{
