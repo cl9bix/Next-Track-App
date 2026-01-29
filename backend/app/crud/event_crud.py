@@ -10,8 +10,8 @@ from app.services.live_bus import publish_event
 from watchfiles import awatch
 
 
-def to_event(e: Event) -> PublicEventResponse:
-    return PublicEventResponse.model_validate(e, from_attributes=True)
+def to_event(e: Event) -> EventResponse:
+    return EventResponse.model_validate(e, from_attributes=True)
 
 
 async def list_events(db: AsyncSession) -> List[EventResponse]:

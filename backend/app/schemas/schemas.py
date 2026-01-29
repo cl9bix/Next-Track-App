@@ -1,10 +1,15 @@
 from datetime import datetime
-from typing import Optional, Dict, Any,List
-from pydantic import BaseModel, ConfigDict, constr, Field
+from typing import Optional, Dict, Any, List
+
+from pydantic import BaseModel, ConfigDict, constr
 
 
-# --- core ---
+# ============================================================
+# Event
+# ============================================================
+
 class EventBase(BaseModel):
+    title: str
     preview: Optional[str] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
@@ -25,6 +30,7 @@ class EventResponse(EventBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ❗️ Публічний івент — НЕ ORM
 class PublicEventResponse(BaseModel):
     id: int
     title: str
@@ -35,6 +41,9 @@ class PublicEventResponse(BaseModel):
     end_date: Optional[datetime] = None
 
 
+# ============================================================
+# Rounds / Songs / Votes
+# ============================================================
 
 class RoundResponse(BaseModel):
     id: int
@@ -42,6 +51,7 @@ class RoundResponse(BaseModel):
     started_at: datetime
     ended_at: Optional[datetime] = None
     winner_song_id: Optional[int] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -54,6 +64,7 @@ class SongResponse(BaseModel):
     name: str
     round_id: int
     votes: int
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -68,7 +79,9 @@ class StateResponse(BaseModel):
     user_voted_song_ids: List[int] = []
 
 
-# ===== Organisator =====
+# ============================================================
+# Organisator
+# ============================================================
 
 class OrganisatorBase(BaseModel):
     name: str
@@ -76,12 +89,8 @@ class OrganisatorBase(BaseModel):
 
 
 class OrganisatorCreate(OrganisatorBase):
-    # приймаємо поле "password" у JSON і доступаємося як payload.password
     password: constr(min_length=6)
     telegram_id: Optional[int] = None
-    # якщо хочете підтримувати також "password_" в майбутньому:
-    # password: constr(min_length=6) = Field(..., alias="password")
-    # model_config = ConfigDict(populate_by_name=True)
 
 
 class OrganisatorResponse(BaseModel):
@@ -89,6 +98,7 @@ class OrganisatorResponse(BaseModel):
     name: str
     username: str
     telegram_id: Optional[int] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -96,6 +106,10 @@ class LoginIn(BaseModel):
     username: str
     password: str
 
+
+# ============================================================
+# Club
+# ============================================================
 
 class ClubCreate(BaseModel):
     name: str
@@ -117,4 +131,5 @@ class ClubUpdate(BaseModel):
 
 class ClubResponse(ClubCreate):
     id: int
+
     model_config = ConfigDict(from_attributes=True)
