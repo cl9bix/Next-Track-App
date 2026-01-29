@@ -39,6 +39,7 @@ async def get_latest_event_by_club_slug(db: AsyncSession, club_slug: str) -> Eve
     )).scalar_one_or_none()
 
     if not ev:
+        print("NO EVENT FOUND")
         raise HTTPException(404, "Event not found")
 
     return to_event(ev)
