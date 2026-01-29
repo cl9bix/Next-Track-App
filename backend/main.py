@@ -19,6 +19,8 @@ ALLOWED_ORIGINS = [
     "https://unsyncopated-shufflingly-gerald.ngrok-free.dev",
     "http://localhost:5500",
     "http://127.0.0.1:5500",
+    'https://next-track.fun/',
+    'https://www.next-track.fun/'
 ]
 
 app.add_middleware(
@@ -27,6 +29,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    allowed_hosts=["next-track.fun", "www.next-track.fun"],
 )
 
 # --- Static + Templates
