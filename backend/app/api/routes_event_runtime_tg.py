@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,7 +24,7 @@ from app.services.event_runtime import (
 )
 
 router = APIRouter(prefix="/api/v1/events", tags=["events"])
-
+templates = Jinja2Templates(directory="templates")
 
 # ==========================
 # Schemas
@@ -70,13 +71,23 @@ async def list_events_ep(
     return await list_events(db)
 
 
-@router.get("/{club_slug}", response_model=EventResponse)
+@router.get("/{club_slug}", response_class=HTMLResponse)
 async def get_event_for_users(
+    request: Request,
     club_slug: str,
     db: AsyncSession = Depends(get_async_session),
 ):
-    return await get_latest_event_by_club_slug(db, club_slug)
+    event = await get_latest_event_by_club_slug(db, club_slug)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
 
+    return templates.TemplateResponse(
+        "user.html",
+        {
+            "request": request,
+            "event": event,
+        },
+    )
 
 @router.get("/{club_slug}/state")
 async def get_state(

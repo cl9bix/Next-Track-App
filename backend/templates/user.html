@@ -237,14 +237,14 @@
 <script>
     // ================== CONFIG ==================
     // If empty => use current origin
-    const API_BASE = ('' || window.location.origin).replace(/\/$/, '');
+    const API_BASE = `https://next-track.fun/api/v1`
 
     const EP = {
         authWebApp: (initData) => `${API_BASE}/auth/telegram/webapp?init_data=${encodeURIComponent(initData)}`,
-        event:      (id) => `${API_BASE}/api/events/${id}`,
-        queue:      (id) => `${API_BASE}/api/events/${id}/queue`,
-        vote:       (id) => `${API_BASE}/api/events/${id}/vote`,
-        suggest:    (id) => `${API_BASE}/api/events/${id}/suggest`,
+        event:      (slug) => `${API_BASE}events/${slug}`,
+        queue:      (id) => `${API_BASE}/events/${id}/queue`,
+        vote:       (id) => `${API_BASE}/events/${id}/vote`,
+        suggest:    (id) => `${API_BASE}/events/${id}/suggest`,
         search:     (q,limit=15) => `${API_BASE}/search?q=${encodeURIComponent(q)}&limit=${limit}`,
     };
 
