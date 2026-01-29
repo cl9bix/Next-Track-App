@@ -173,21 +173,25 @@ class Round(Base):
 
     event = relationship("Event", back_populates="rounds", foreign_keys=[event_id])
 
+    # ✅ ВАЖЛИВО: явно кажемо, що список songs будується ТІЛЬКИ через Song.round_id
     songs = relationship(
         "Song",
         back_populates="round",
         cascade="all, delete-orphan",
         passive_deletes=True,
+        foreign_keys="Song.round_id",
+        primaryjoin="Round.id==Song.round_id",
     )
 
-    # ✅ щоб Vote міг мати relationship round (і тобі було зручно)
     votes = relationship(
         "Vote",
         back_populates="round",
         cascade="all, delete-orphan",
         passive_deletes=True,
+        foreign_keys="Vote.round_id",
     )
 
+    # ✅ окремо winner_song через Round.winner_song_id
     winner_song = relationship(
         "Song",
         foreign_keys=[winner_song_id],
@@ -198,6 +202,36 @@ class Round(Base):
     __table_args__ = (
         Index("ix_round_event_number", "event_id", "number", unique=True),
         Index("ix_round_event", "event_id"),
+    )
+
+
+class Song(Base):
+    __tablename__ = "songs"
+
+    id = Column(Integer, primary_key=True)
+    round_id = Column(Integer, ForeignKey("rounds.id", ondelete="CASCADE"), nullable=False)
+
+    title = Column(String, nullable=False)
+    artist = Column(String, nullable=True)
+
+    source = Column(String(32), nullable=True)
+    source_id = Column(String(128), nullable=True)
+    cover_url = Column(String(1024), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    round = relationship(
+        "Round",
+        back_populates="songs",
+        foreign_keys=[round_id],
+        primaryjoin="Song.round_id==Round.id",
+    )
+
+    votes = relationship(
+        "Vote",
+        back_populates="song",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
 
@@ -217,34 +251,7 @@ class User(Base):
     )
 
 
-class Song(Base):
-    __tablename__ = "songs"
 
-    id = Column(Integer, primary_key=True)
-    round_id = Column(Integer, ForeignKey("rounds.id", ondelete="CASCADE"), nullable=False)
-
-    title = Column(String, nullable=False)
-    artist = Column(String, nullable=True)
-
-    source = Column(String(32), nullable=True)       # "deezer" | "itunes" | ...
-    source_id = Column(String(128), nullable=True)   # id у провайдера
-    cover_url = Column(String(1024), nullable=True)
-
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-
-    round = relationship("Round", back_populates="songs")
-
-    votes = relationship(
-        "Vote",
-        back_populates="song",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-
-    __table_args__ = (
-        UniqueConstraint("round_id", "title", "artist", name="uq_song_round_title_artist"),
-        Index("ix_song_round", "round_id"),
-    )
 
 
 class Vote(Base):
