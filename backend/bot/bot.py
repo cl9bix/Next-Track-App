@@ -26,22 +26,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not args:
         await update.message.reply_text(MESSAGES['start'][get_user.language_code])
 
-        return
-    payload: str = args[0]
-
-    if payload.startswith('event_'):
-        club_slug = payload.split('_')[1]
-        print(f"CLUBSLUG:()")
-
-        keyboard = [
-            [InlineKeyboardButton("Open Event", web_app=WebAppInfo(url=f'https://next-track.fun/api/v1/events/{club_slug}'))]
-        ]
-
-        await update.message.reply_text("")
-
-    await update.message.reply_text(
-        "Welcome to Next Track!", reply_markup=InlineKeyboardMarkup(keyboard)
-    )
 
 
 app = ApplicationBuilder().token(BOT_TOKEN).build()
