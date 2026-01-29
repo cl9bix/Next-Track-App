@@ -256,14 +256,22 @@
   const byId = id => document.getElementById(id);
 
   // ✅ event slug from query: ?event=event_kaif (or any slug)
-  const pathParts = location.pathname.split('/').filter(Boolean);
-  const params = new URLSearchParams(location.search);
-  const EVENT_SLUG = params.get('tgWebAppStartParam');
+    const params = new URLSearchParams(location.search);
+    const fromQuery =
+      params.get('tgWebAppStartParam') ||
+      params.get('event');
+
+    const pathParts = location.pathname.split('/').filter(Boolean);
+    const fromPath =
+      pathParts[0] === 'events' ? pathParts[1] : null;
+
+    const EVENT_SLUG = fromQuery || fromPath;
 
     if (!EVENT_SLUG) {
       location.replace('/404');
       throw new Error('Missing event slug');
     }
+
 
 
   const state = {
