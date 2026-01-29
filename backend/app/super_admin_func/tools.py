@@ -4,7 +4,7 @@ import asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.session import async_session_maker
+from app.models.session import get_async_session
 from app.models.models import AdminUser, Club
 from app.core.auth import hash_password
 
@@ -17,7 +17,7 @@ async def create_admin(
     club_id: int,
     role: str,
 ):
-    async with async_session_maker() as db:  # 👈 ключове
+    async with get_async_session() as db:
         admin = (
             await db.execute(
                 select(AdminUser).where(AdminUser.username == username)
