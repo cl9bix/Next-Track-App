@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.session import get_async_session as get_db
 from app.models.models import AdminUser, Club, Event, Dj, EventDJ
-from app.core.admin_auth import verify_password, create_admin_token, get_current_admin
+from app.core.auth import verify_password, create_admin_token, get_current_admin
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 templates = Jinja2Templates(directory="templates")
