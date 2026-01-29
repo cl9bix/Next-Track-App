@@ -5,8 +5,6 @@ from pydantic import BaseModel, ConfigDict, constr, Field
 
 # --- core ---
 class EventBase(BaseModel):
-    name: str
-    slug: str
     preview: Optional[str] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
@@ -23,9 +21,19 @@ class EventUpdate(EventBase):
 
 class EventResponse(EventBase):
     id: int
-    name: str
-    slug: str
-    club_id: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PublicEventResponse(BaseModel):
+    id: int
+    title: str
+    club_slug: str
+    club_name: str
+    preview: Optional[str] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+
 
 
 class RoundResponse(BaseModel):

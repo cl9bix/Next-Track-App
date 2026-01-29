@@ -5,13 +5,13 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import desc
 from app.models.models import Event, Round,Club
-from app.schemas.schemas import EventCreate, EventUpdate, EventResponse, RoundResponse
+from app.schemas.schemas import EventCreate, EventUpdate, EventResponse, RoundResponse,PublicEventResponse
 from app.services.live_bus import publish_event
 from watchfiles import awatch
 
 
-def to_event(e: Event) -> EventResponse:
-    return EventResponse.model_validate(e, from_attributes=True)
+def to_event(e: Event) -> PublicEventResponse:
+    return PublicEventResponse.model_validate(e, from_attributes=True)
 
 
 async def list_events(db: AsyncSession) -> List[EventResponse]:
