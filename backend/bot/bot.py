@@ -31,8 +31,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if payload.startswith('event_'):
         club_slug = payload.split('_')[1]
+        print(f"CLUBSLUG:()")
+
         keyboard = [
-            [InlineKeyboardButton("Open Event", web_app=WebAppInfo(url=f'https://next-track.fun/event/{club_slug}'))]
+            [InlineKeyboardButton("Open Event", web_app=WebAppInfo(url=f'https://next-track.fun/api/v1/events/{club_slug}'))]
         ]
 
         await update.message.reply_text("")
