@@ -78,6 +78,7 @@ async def get_event_for_users(
     club_slug: str,
     db: AsyncSession = Depends(get_async_session),
 ):
+    club_slug = club_slug.split('_')[1]
     event = await get_latest_event_by_club_slug(db, club_slug)
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
