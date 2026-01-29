@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BOT_TOKEN = "8399376497:AAFt0RfpefTQaSX8TAWoCCL0_V7Xi3-bvFw"
-WEBAPP_URL = "https://unsyncopated-shufflingly-gerald.ngrok-free.dev"
+WEBAPP_URL = "https://next-track.fun/"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
