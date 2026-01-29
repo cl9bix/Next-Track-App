@@ -28,9 +28,7 @@ async def get_latest_event_by_club_slug(db: AsyncSession, club_slug: str) -> Eve
     print(f"Starting to get_latest_event_by_club_slug with:({club_slug}) !!!")
     club = (await db.execute(select(Club).where(Club.slug == club_slug))).scalar_one_or_none()
     if not club:
-        print("NO CLUB FOUND")
         raise HTTPException(404, "Club not found")
-    print("CLUB FOUND:",club)
     ev = (await db.execute(
         select(Event)
         .where(Event.club_id == club.id)
@@ -39,9 +37,7 @@ async def get_latest_event_by_club_slug(db: AsyncSession, club_slug: str) -> Eve
     )).scalar_one_or_none()
 
     if not ev:
-        print("NO EVENT FOUND")
         raise HTTPException(404, "Event not found")
-    print("EVENT FOUND:",ev)
     return to_event(ev)
 
 

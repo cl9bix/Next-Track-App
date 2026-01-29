@@ -80,8 +80,10 @@ async def get_event_for_users(
 ):
     event = await get_latest_event_by_club_slug(db, club_slug)
     if not event:
+        print("EVENT NOT FOUND")
         raise HTTPException(status_code=404, detail="Event not found")
 
+    print("ALLES IM ORDNUNG")
     return templates.TemplateResponse(
         "user.html",
         {
