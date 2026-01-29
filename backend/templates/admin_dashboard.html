@@ -84,7 +84,6 @@
     .small{padding:10px 12px; border-radius:12px; font-weight:900; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06); cursor:pointer}
     .small:active{transform:translateY(1px)}
     .empty{padding:18px; text-align:center; color:var(--muted)}
-
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
   </style>
 </head>
@@ -102,7 +101,7 @@
         <div class="sub">Admin dashboard</div>
       </div>
     </div>
-    <div class="pill">🏢 <span id="clubName">Your club</span></div>
+    <div class="pill">🏢 <span id="clubName">{{ club.name if club else "Your club" }}</span></div>
   </div>
 </header>
 
@@ -140,148 +139,103 @@
 
   <section class="card">
     <div class="list" id="eventsList">
-      <div class="empty" id="loadingBox">Loading…</div>
+      <!-- ✅ Server-side fallback render -->
+      {% if events and events|length %}
+        {% for ev in events %}
+          <div class="item">
+            <div class="art" aria-hidden="true"></div>
+            <div class="body">
+              <div class="name">{{ ev.title or "Untitled" }}</div>
+              <div class="meta">
+                <span class="mono">
+                  {{ ev.start_date.isoformat() if ev.start_date else "—" }}
+                  →
+                  {{ ev.end_date.isoformat() if ev.end_date else "—" }}
+                </span>
+              </div>
+              <div class="meta mono">Event ID: {{ ev.id }}</div>
+            </div>
+            <div class="right">
+              <button class="small" type="button" data-share="/?event={{ ev.id }}">Copy link</button>
+              <a class="small" href="/admin/events/new?clone={{ ev.id }}" title="Create similar event">Clone</a>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty" id="loadingBox">No events yet. Create the first one ✨</div>
+      {% endif %}
     </div>
   </section>
 </main>
 
 <script>
+  // Optional: inject JSON from backend if you want JS rendering too:
+  // window.__EVENTS__ = {{ events_json|tojson }};
+  // window.__CLUB__ = {{ club|tojson }};
 
   const $list = document.getElementById('eventsList');
-  const $loading = document.getElementById('loadingBox');
-  const $club = document.getElementById('clubName');
   const $kTotal = document.getElementById('kpiTotal');
   const $kLive = document.getElementById('kpiLive');
   const $kUpcoming = document.getElementById('kpiUpcoming');
 
-  try {
-    if (window.__CLUB__?.name) $club.textContent = window.__CLUB__.name;
-  } catch {}
-
-  function fmtDT(s){
-    if(!s) return '—';
+  function parseISO(s){
+    if(!s) return null;
     const d = new Date(s);
-    if(Number.isNaN(d.getTime())) return String(s);
-    return d.toLocaleString(undefined, {year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+    if(Number.isNaN(d.getTime())) return null;
+    return d;
+  }
+
+  // KPI calc from server-rendered DOM OR from __EVENTS__
+  function calcKpisFromDom(){
+    const items = $list.querySelectorAll('.item');
+    const total = items.length;
+    $kTotal.textContent = String(total);
+    // without JSON we can’t infer live/upcoming reliably => show 0/0
+    $kLive.textContent = '0';
+    $kUpcoming.textContent = String(total);
   }
 
   function statusOf(ev){
-    if(!ev || typeof ev !== 'object') return 'scheduled';
-    if (ev.status) return String(ev.status).toLowerCase();
-
     const now = Date.now();
-    const start = ev.start_date ? new Date(ev.start_date).getTime() : 0;
-    const end = ev.end_date ? new Date(ev.end_date).getTime() : 0;
-
+    const start = parseISO(ev.start_date)?.getTime() || 0;
+    const end = parseISO(ev.end_date)?.getTime() || 0;
     if (end && now > end) return 'ended';
     if (start && now >= start && (!end || now < end)) return 'live';
     return 'scheduled';
   }
 
-  function dotClass(st){
-    if(st === 'live') return 'ok';
-    if(st === 'ended') return 'bad';
-    return 'warn';
-  }
-
-  function buildShareLink(ev){
-    if (ev?.share_url) return String(ev.share_url);
-
-    const bot = window.__CONFIG__?.telegram_bot; // e.g. "next_track_bot"
-    if (bot && ev?.id != null) {
-      return `https://t.me/${encodeURIComponent(bot)}?startapp=event_${encodeURIComponent(ev.id)}`;
-    }
-
-    const base = location.origin;
-    if (ev?.id != null) return `${base}/?event=${encodeURIComponent(ev.id)}`;
-    return base + '/';
-  }
-
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-  }
-
-  function render(events){
-    if ($loading) $loading.remove();
-
-    if(!Array.isArray(events) || !events.length){
-      $list.innerHTML = `<div class="empty">No events yet. Create the first one ✨</div>`;
-      $kTotal.textContent = '0';
-      $kLive.textContent = '0';
-      $kUpcoming.textContent = '0';
-      return;
-    }
-
+  function calcKpisFromJson(events){
     let live=0, upcoming=0;
     for(const ev of events){
       const st = statusOf(ev);
       if(st==='live') live++;
       if(st==='scheduled') upcoming++;
     }
-
     $kTotal.textContent = String(events.length);
     $kLive.textContent = String(live);
     $kUpcoming.textContent = String(upcoming);
+  }
 
-    $list.innerHTML = events.map(ev=>{
-      const st = statusOf(ev);
-      const share = buildShareLink(ev);
-      const subtitle = `${fmtDT(ev?.start_date)} → ${fmtDT(ev?.end_date)}`;
-
-      return `
-        <div class="item">
-          <div class="art" aria-hidden="true"></div>
-          <div class="body">
-            <div class="name">${escapeHtml(ev?.title || 'Untitled')}</div>
-            <div class="meta">
-              ${escapeHtml(subtitle)} ·
-              <span class="badge"><span class="dot ${dotClass(st)}"></span>${escapeHtml(st.toUpperCase())}</span>
-            </div>
-            <div class="meta mono">Event ID: ${escapeHtml(String(ev?.id ?? '—'))}</div>
-          </div>
-          <div class="right">
-            <button class="small" type="button" data-copy="${encodeURIComponent(share)}">Copy link</button>
-            <a class="small" href="/admin/events/new?clone=${encodeURIComponent(ev?.id ?? '')}" title="Create similar event">Clone</a>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    $list.querySelectorAll('[data-copy]').forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
-        const url = decodeURIComponent(btn.dataset.copy||'');
-        try{
-          await navigator.clipboard.writeText(url);
-          btn.textContent = 'Copied ✓';
-          setTimeout(()=>btn.textContent='Copy link', 900);
-        }catch{
-          prompt('Copy this link:', url);
-        }
-      });
+  // Copy buttons (works for server-rendered list)
+  $list.querySelectorAll('[data-share]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const url = location.origin + (btn.getAttribute('data-share') || '/');
+      try{
+        await navigator.clipboard.writeText(url);
+        btn.textContent = 'Copied ✓';
+        setTimeout(()=>btn.textContent='Copy link', 900);
+      }catch{
+        prompt('Copy this link:', url);
+      }
     });
+  });
+
+  // If you later inject window.__EVENTS__, KPIs will become accurate
+  if (Array.isArray(window.__EVENTS__) && window.__EVENTS__.length) {
+    calcKpisFromJson(window.__EVENTS__);
+  } else {
+    calcKpisFromDom();
   }
-
-  async function load(){
-    if (Array.isArray(window.__EVENTS__)) {
-      render(window.__EVENTS__);
-      return;
-    }
-
-    try{
-      const res = await fetch('/admin/api/events', {
-        method: 'GET',
-        headers: {'Accept':'application/json'},
-        credentials: 'same-origin',
-      });
-      if(!res.ok) throw new Error('no api');
-      const data = await res.json();
-      render(data);
-    }catch{
-      render([]);
-    }
-  }
-
-  load();
 </script>
 </body>
 </html>

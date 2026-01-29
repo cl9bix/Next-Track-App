@@ -137,8 +137,6 @@
         <div class="ttl">Create new event</div>
         <div class="sub">Fill details and attach DJs. Dates: <span class="mono">YYYY-MM-DD HH:MM</span> or ISO.</div>
       </div>
-      <div class="hint">Tip: paste fast with <span class="kbd">Ctrl</span>+<span class="kbd">V</span></div>
-    </div>
 
     <div id="errBox" class="err">{% if error %}{{ error }}{% endif %}</div>
 
@@ -186,7 +184,6 @@
               </label>
             {% endfor %}
           {% else %}
-            <div class="hint">No DJs in database yet. You can still create event and attach DJs later.</div>
           {% endif %}
         </div>
 
@@ -203,7 +200,6 @@
         <ul>
           <li>If you leave dates empty — event will be treated as “scheduled” on dashboard (until you set start/end).</li>
           <li>Date examples: <span class="mono">2026-01-29 22:00</span> or <span class="mono">2026-01-29T22:00</span></li>
-          <li>If timezones matter — store everything in UTC on backend (you already do that 👌).</li>
         </ul>
       </div>
     </form>
