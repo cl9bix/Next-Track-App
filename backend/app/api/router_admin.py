@@ -167,7 +167,7 @@ async def new_event_form(
 ):
     djs = (await db.execute(select(Dj).order_by(Dj.name.asc()))).scalars().all()
     return templates.TemplateResponse(
-        "admin_event_new.html",
+        "create_event.html",
         {"request": request, "admin": admin_to_dict(me), "djs": djs, "error": None},
     )
 
@@ -189,7 +189,7 @@ async def create_event(
     except Exception:
         djs = (await db.execute(select(Dj).order_by(Dj.name.asc()))).scalars().all()
         return templates.TemplateResponse(
-            "admin_event_new.html",
+            "create_event.html",
             {
                 "request": request,
                 "admin": admin_to_dict(me),
