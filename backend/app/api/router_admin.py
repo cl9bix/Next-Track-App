@@ -68,6 +68,12 @@ async def admin_login(
     return resp
 
 
+@router.get("/register", response_class=HTMLResponse)
+async def register_page(request: Request):
+    """This page available only for George and begrenzt by ip"""
+    return templates.TemplateResponse("register.html", {"request": request, "error": None})
+
+
 @router.get("/logout")
 async def admin_logout():
     resp = RedirectResponse(url="/admin/login", status_code=303)
