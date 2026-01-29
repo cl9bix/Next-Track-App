@@ -21,11 +21,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: next-track-redis
+    command: ["redis-server", "--appendonly", "yes", "--port", "6379"]
     ports:
-      - "6380:6380"
-    command: ["redis-server", "--appendonly", "yes"]
+      - "6380:6379"   # ✅ host:6380 -> container:6379
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
       interval: 5s
       timeout: 2s
       retries: 20
@@ -35,15 +35,18 @@ services:
     build:
       context: ./backend/bot
       dockerfile: Dockerfile
+    container_name: next-track-bot
     env_file: .env
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN}
+      EVENT_TOKEN_SECRET: ${EVENT_TOKEN_SECRET}
+      REDIS_URL: ${REDIS_URL}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-
-
-
+    networks: [crm_network]
 
   backend:
     build:
@@ -52,22 +55,37 @@ services:
     container_name: next-track-backend
     env_file: .env
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      # ✅ базові змінні
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      DB_HOST: next-track-db
+      DB_PORT: 5432
+
+      # ✅ зібрані URL прямо тут (надійно)
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@next-track-db:5432/${POSTGRES_DB}
+      ALEMBIC_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@next-track-db:5432/${POSTGRES_DB}
+
       REDIS_URL: ${REDIS_URL}
       BOT_TOKEN: ${BOT_TOKEN}
       EVENT_TOKEN_SECRET: ${EVENT_TOKEN_SECRET}
+
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+
     ports:
       - "8110:8110"
+
     volumes:
       - ./backend:/backend
     working_dir: /backend
+
     command: >
       uvicorn main:app --host 0.0.0.0 --port 8110 --reload
+
     networks: [crm_network]
 
 volumes:
