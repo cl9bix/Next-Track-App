@@ -86,6 +86,7 @@ async def get_event_for_users(
         {
             "request": request,
             "event": event,
+            "club_slug":club_slug,
         },
     )
 
