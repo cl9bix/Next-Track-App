@@ -22,25 +22,25 @@ def _get_init_data(request: Request) -> Optional[str]:
     return request.cookies.get("tg_init") or request.headers.get("X-Telegram-InitData")
 
 
-async def require_admin(request: Request, db: AsyncSession = Depends(get_db)) -> AdminUser:
-    init_data = _get_init_data(request)
-    if not init_data:
-        raise HTTPException(401, "Telegram auth required")
-
-    user = verify_webapp_init_data(init_data)
-    tg_id = int(user["id"])
-
-    q = select(AdminUser).where(AdminUser.telegram_id == tg_id, AdminUser.is_active == True)
-    admin = (await db.execute(q)).scalar_one_or_none()
-    if not admin:
-        raise HTTPException(403, "Admin not allowed")
-
-    # optional: fill display_name once
-    if not admin.display_name:
-        admin.display_name = user.get("username") or user.get("first_name") or "admin"
-        await db.commit()
-
-    return admin
+# async def require_admin(request: Request, db: AsyncSession = Depends(get_db)) -> AdminUser:
+#     init_data = _get_init_data(request)
+#     if not init_data:
+#         raise HTTPException(401, "Telegram auth required")
+#
+#     user = verify_webapp_init_data(init_data)
+#     tg_id = int(user["id"])
+#
+#     q = select(AdminUser).where(AdminUser.telegram_id == tg_id, AdminUser.is_active == True)
+#     admin = (await db.execute(q)).scalar_one_or_none()
+#     if not admin:
+#         raise HTTPException(403, "Admin not allowed")
+#
+#     # optional: fill display_name once
+#     if not admin.display_name:
+#         admin.display_name = user.get("username") or user.get("first_name") or "admin"
+#         await db.commit()
+#
+#     return admin
 
 
 @router.post("/session")
