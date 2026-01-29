@@ -256,18 +256,13 @@
   const byId = id => document.getElementById(id);
 
   // ✅ event slug from query: ?event=event_kaif (or any slug)
-  const qs = new URLSearchParams(location.search);
+  const pathParts = location.pathname.split('/').filter(Boolean);
+  const EVENT_SLUG = pathParts[pathParts.length - 1];
 
-const EVENT_SLUG =
-  qs.get('event') ||
-  qs.get('tgWebAppStartParam') ||
-  window.Telegram?.WebApp?.initDataUnsafe?.start_param;
-
-
-  if (!EVENT_SLUG) {
-    location.replace('/404');
-    throw new Error('Missing ?event=');
-  }
+    if (!EVENT_SLUG) {
+      location.replace('/404');
+      throw new Error('Missing event slug');
+    }
 
   const state = {
     token: null,
