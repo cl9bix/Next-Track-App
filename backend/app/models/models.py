@@ -39,12 +39,19 @@ class Club(Base):
 
 class AdminUser(Base):
     """
-    Адмін панелі (owner/manager). Додаєш вручну по telegram_id.
+    Адмін панелі (owner/admin). Додаєш вручну.
     """
     __tablename__ = "admin_users"
     id = Column(Integer, primary_key=True)
-    telegram_id = Column(BigInteger, unique=True, index=True, nullable=False)
+
+    telegram_id = Column(BigInteger, unique=True, index=True, nullable=True)  # можеш лишити optional
     display_name = Column(String(120), nullable=True)
+
+    username = Column(String(64), unique=True, index=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+
+    role = Column(Enum(AdminRole, name="admin_role"), nullable=False, server_default=AdminRole.admin.value)
+
     is_active = Column(Boolean, default=True, nullable=False)
 
     club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False)
@@ -67,9 +74,12 @@ class Event(Base):
 
     club = relationship("Club", back_populates="events")
 
+    djs = relationship("EventDJ", back_populates="event", cascade="all, delete-orphan")
+
     __table_args__ = (
         Index("ix_events_club_start", "club_id", "start_date"),
     )
+
 
 
 class Dj(Base):
