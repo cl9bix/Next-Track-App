@@ -49,6 +49,9 @@ async def admin_page(request: Request):
     # templates/user.html
     return templates.TemplateResponse("admin_dashboard.html", {"request": request})
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
 # --- API routers
 app.include_router(search_router)
