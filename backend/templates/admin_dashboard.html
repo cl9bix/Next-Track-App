@@ -1,74 +1,280 @@
+<!-- templates/admin_dashboard.html -->
 <!doctype html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Next Track — Admin Dashboard</title>
+  <meta name="description" content="Next Track admin dashboard." />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta http-equiv="Cache-Control" content="no-store" />
 
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width,initial-scale=1"/>
-    <title>Admin — Dashboard</title>
-    <style>
-        body{font-family:system-ui,Arial; margin:0; background:#0b0720; color:#f0eff6}
-        .wrap{max-width:900px; margin:0 auto; padding:18px}
-        .card{background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:14px; margin:12px 0}
-        a.btn{display:inline-block; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18)}
-        table{width:100%; border-collapse:collapse}
-        th,td{padding:10px; border-bottom:1px solid rgba(255,255,255,.10); text-align:left}
-        .muted{opacity:.75}
-    </style>
+  <style>
+    :root{
+      --bg:#0b0720; --bg2:#09061f;
+      --txt:#f0eff6; --muted:#b8b6d3;
+      --accent1:#4dd0ff; --accent2:#ff4dd2; --ok:#77f2a1; --warn:#ffcc66; --bad:#ff6b8a;
+      --glass:rgba(255,255,255,.06); --border:rgba(255,255,255,.12);
+      --shadow:0 10px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
+      --radius:16px; --maxw:980px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; color:var(--txt); background:var(--bg); font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif; -webkit-font-smoothing:antialiased}
+    a{color:inherit; text-decoration:none}
+    .container{width:100%; max-width:var(--maxw); margin:0 auto; padding:0 16px}
+
+    .bg{position:fixed; inset:0; z-index:-2; background:
+      radial-gradient(55vw 55vw at 15% 10%, rgba(77,208,255,.25), transparent 60%),
+      radial-gradient(45vw 45vw at 90% 0%, rgba(255,77,210,.20), transparent 60%),
+      radial-gradient(35vw 35vw at 70% 80%, rgba(105,92,255,.18), transparent 60%),
+      linear-gradient(180deg, #0b0720 0%, #08051a 100%);}
+    .blob{position:fixed; width:48vmin; height:48vmin; border-radius:50%; filter:blur(18px); mix-blend-mode:screen; opacity:.45; z-index:-1; animation:drift 26s ease-in-out infinite}
+    .blob.b2{right:-8vmin; top:8vmin; background:radial-gradient(circle at 70% 40%, rgba(255,77,210,.25), rgba(77,208,255,.12)); animation-duration:30s}
+    .blob.b1{left:-6vmin; top:20vmin; background:radial-gradient(circle at 30% 30%, rgba(77,208,255,.25), rgba(255,77,210,.15))}
+    @keyframes drift{0%{transform:translate(-5vmin,0)}50%{transform:translate(6vmin,2vmin)}100%{transform:translate(-5vmin,0)}}
+
+    header{position:sticky; top:0; background:linear-gradient(180deg, rgba(8,5,26,.7), rgba(8,5,26,.25));
+      backdrop-filter:blur(8px) saturate(140%); border-bottom:1px solid var(--border); z-index:5}
+    .topbar{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 0}
+    .brand{display:flex; align-items:center; gap:10px}
+    .brand img{width:32px; height:32px; border-radius:8px}
+    .brand b{letter-spacing:.2px}
+    .pill{display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px;
+      background:var(--glass); border:1px solid var(--border); box-shadow:var(--shadow); font-weight:800}
+
+    .card{background:var(--glass); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
+    .grid{display:grid; gap:12px}
+    .head{margin:14px 0}
+    .head .ttl{font-weight:950; font-size:18px}
+    .sub{color:var(--muted)}
+    .actions{display:flex; gap:10px; flex-wrap:wrap}
+    .btn{
+      border:none; padding:12px 14px; border-radius:12px; font-weight:950; cursor:pointer;
+      background:linear-gradient(135deg, rgba(77,208,255,.18), rgba(255,77,210,.18));
+      border:1px solid rgba(255,255,255,.22);
+      color:var(--txt);
+      display:inline-flex; align-items:center; gap:8px;
+    }
+    .btn.primary{background:linear-gradient(135deg, rgba(77,208,255,.30), rgba(255,77,210,.30)); border-color:rgba(255,255,255,.28)}
+    .btn.ghost{background:transparent}
+    .btn:active{transform:translateY(1px)}
+
+    .kpis{display:grid; grid-template-columns:repeat(3,1fr); gap:10px}
+    @media (max-width:760px){ .kpis{grid-template-columns:1fr} }
+    .kpi{padding:14px}
+    .kpi .k{color:var(--muted); font-size:12px}
+    .kpi .v{font-weight:950; font-size:20px; margin-top:6px}
+    .dot{width:9px; height:9px; border-radius:50%}
+    .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
+    .row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
+
+    .list{display:flex; flex-direction:column; gap:10px; padding:12px}
+    .item{
+      display:flex; gap:12px; align-items:center; padding:12px; border-radius:14px;
+      background:rgba(255,255,255,.06); border:1px solid var(--border)
+    }
+    .art{width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,var(--accent1),var(--accent2))}
+    .body{flex:1 1 auto; min-width:0}
+    .name{font-weight:900}
+    .meta{color:var(--muted); font-size:12px; margin-top:4px}
+    .badge{display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.05); color:var(--muted); font-weight:900; font-size:12px}
+    .right{display:flex; align-items:center; gap:8px}
+    .small{padding:10px 12px; border-radius:12px; font-weight:900; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06); cursor:pointer}
+    .small:active{transform:translateY(1px)}
+    .empty{padding:18px; text-align:center; color:var(--muted)}
+
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+  </style>
 </head>
+
 <body>
-<div class="wrap">
-    <h2>🏁 Admin panel</h2>
-    <div class="card">
-        <div><b>Club:</b> {{ club.name }} <span class="muted">(#{{ club.id }})</span></div>
-        <div><b>Admin:</b> {{ admin.display_name }} <span class="muted">(tg: {{ admin.telegram_id }})</span></div>
-        <div style="margin-top:12px">
-            <a class="btn" href="/admin/events/new">＋ Create event</a>
-        </div>
+<div class="bg"></div>
+<div class="blob b1"></div><div class="blob b2"></div>
+
+<header>
+  <div class="container topbar">
+    <div class="brand">
+      <img src="/static/logo.jpg" alt="Next Track" />
+      <div>
+        <b>Next Track</b>
+        <div class="sub">Admin dashboard</div>
+      </div>
+    </div>
+    <div class="pill">🏢 <span id="clubName">Your club</span></div>
+  </div>
+</header>
+
+<main class="container" style="padding:14px 16px 40px">
+  <section class="grid head">
+    <div class="row">
+      <div>
+        <div class="ttl">Events</div>
+        <div class="sub">Create, monitor, and share event links for Telegram Mini App.</div>
+      </div>
+      <div class="actions">
+        <a class="btn primary" href="/admin/events/new">➕ Create event</a>
+
+        <!-- Logout: you can implement POST /admin/logout that clears cookie -->
+        <form method="post" action="/admin/logout" style="margin:0">
+          <button class="btn ghost" type="submit">🚪 Logout</button>
+        </form>
+      </div>
     </div>
 
-    <div class="card">
-        <h3 style="margin:0 0 10px 0">Events</h3>
-        {% if events and events|length %}
-        <table>
-            <thead>
-            <tr>
-                <th>ID</th>
-                <th>Title</th>
-                <th>Start</th>
-                <th>End</th>
-            </tr>
-            </thead>
-            <tbody>
-            {% for e in events %}
-            <tr>
-                <td>#{{ e.id }}</td>
-                <td>{{ e.title }}</td>
-                <td class="muted">{{ e.start_date or "—" }}</td>
-                <td class="muted">{{ e.end_date or "—" }}</td>
-            </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <div class="muted">No events yet.</div>
-        {% endif %}
+    <div class="kpis">
+      <div class="card kpi">
+        <div class="k">Total events</div>
+        <div class="v" id="kpiTotal">—</div>
+      </div>
+      <div class="card kpi">
+        <div class="k">Live now</div>
+        <div class="v" id="kpiLive">—</div>
+      </div>
+      <div class="card kpi">
+        <div class="k">Upcoming</div>
+        <div class="v" id="kpiUpcoming">—</div>
+      </div>
     </div>
-</div>
+  </section>
 
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <section class="card">
+    <div class="list" id="eventsList">
+      <div class="empty">Loading…</div>
+    </div>
+  </section>
+</main>
+
 <script>
-    // auto-login via Telegram WebApp initData -> set cookie
-    (async function(){
-        const tg = window.Telegram?.WebApp;
-        if(!tg?.initData) return;
+  // Optional: server can inject club/admin data into window.__ADMIN__ via Jinja.
+  // Example:
+  // <script>window.__ADMIN__={{ admin | tojson }}; window.__CLUB__={{ club | tojson }};</script>
+
+  const $list = document.getElementById('eventsList');
+  const $club = document.getElementById('clubName');
+  const $kTotal = document.getElementById('kpiTotal');
+  const $kLive = document.getElementById('kpiLive');
+  const $kUpcoming = document.getElementById('kpiUpcoming');
+
+  // If you don't render server data, you can just keep placeholders.
+  try{
+    if(window.__CLUB__?.name) $club.textContent = window.__CLUB__.name;
+  }catch{}
+
+  function fmtDT(s){
+    if(!s) return '—';
+    const d = new Date(s);
+    if(Number.isNaN(d.getTime())) return s;
+    return d.toLocaleString(undefined, {year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+  }
+
+  function statusOf(ev){
+    // If your backend returns status, use it.
+    // Fallback: infer from start/end vs now
+    const now = Date.now();
+    const st = ev.status;
+    if(st) return st;
+    const start = ev.start_date ? new Date(ev.start_date).getTime() : 0;
+    const end = ev.end_date ? new Date(ev.end_date).getTime() : 0;
+    if(end && now > end) return 'ended';
+    if(start && now >= start && (!end || now < end)) return 'live';
+    return 'scheduled';
+  }
+
+  function dotClass(st){
+    if(st === 'live') return 'ok';
+    if(st === 'ended') return 'bad';
+    return 'warn';
+  }
+
+  function buildShareLink(ev){
+    // Telegram Mini App link example:
+    // https://t.me/next_track_bot?startapp=event_<id>
+    // For MVP we show a simple web link:
+    const base = location.origin;
+    return `${base}/?event=${encodeURIComponent(ev.id)}`;
+  }
+
+  function render(events){
+    if(!Array.isArray(events) || !events.length){
+      $list.innerHTML = `<div class="empty">No events yet. Create the first one ✨</div>`;
+      $kTotal.textContent = '0';
+      $kLive.textContent = '0';
+      $kUpcoming.textContent = '0';
+      return;
+    }
+
+    let live=0, upcoming=0;
+    for(const ev of events){
+      const st = statusOf(ev);
+      if(st==='live') live++;
+      if(st==='scheduled') upcoming++;
+    }
+
+    $kTotal.textContent = String(events.length);
+    $kLive.textContent = String(live);
+    $kUpcoming.textContent = String(upcoming);
+
+    $list.innerHTML = events.map(ev=>{
+      const st = statusOf(ev);
+      const share = buildShareLink(ev);
+      const subtitle = `${fmtDT(ev.start_date)} → ${fmtDT(ev.end_date)}`;
+      return `
+        <div class="item">
+          <div class="art" aria-hidden="true"></div>
+          <div class="body">
+            <div class="name">${escapeHtml(ev.title || 'Untitled')}</div>
+            <div class="meta">${escapeHtml(subtitle)} · <span class="badge"><span class="dot ${dotClass(st)}"></span>${st.toUpperCase()}</span></div>
+            <div class="meta mono">Event ID: ${escapeHtml(String(ev.id))}</div>
+          </div>
+          <div class="right">
+            <button class="small" data-copy="${encodeURIComponent(share)}">Copy link</button>
+            <a class="small" href="/admin/events/new?clone=${encodeURIComponent(ev.id)}" title="Create similar event">Clone</a>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    $list.querySelectorAll('[data-copy]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const url = decodeURIComponent(btn.dataset.copy||'');
         try{
-            await fetch('/admin/session', {
-                method:'POST',
-                headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({init_data: tg.initData})
-            });
-        }catch(e){}
-    })();
+          await navigator.clipboard.writeText(url);
+          btn.textContent = 'Copied ✓';
+          setTimeout(()=>btn.textContent='Copy link', 900);
+        }catch{
+          prompt('Copy this link:', url);
+        }
+      });
+    });
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  }
+
+  async function load(){
+    // Option A (best): render events server-side via Jinja in window.__EVENTS__
+    if(Array.isArray(window.__EVENTS__)){
+      render(window.__EVENTS__);
+      return;
+    }
+
+    // Option B: fetch JSON endpoint if you have it
+    // e.g. GET /admin/api/events -> [{...}]
+    try{
+      const res = await fetch('/admin/api/events', { headers:{'Accept':'application/json'} });
+      if(!res.ok) throw new Error('no api');
+      const data = await res.json();
+      render(data);
+    }catch{
+      // fallback empty
+      render([]);
+    }
+  }
+
+  load();
 </script>
 </body>
 </html>

@@ -1,0 +1,37 @@
+<!-- templates/create_event.html -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Next Track — Create Event</title>
+  <meta name="description" content="Create an event for your club." />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+
+  <style>
+    :root{
+      --bg:#0b0720; --bg2:#09061f;
+      --txt:#f0eff6; --muted:#b8b6d3;
+      --accent1:#4dd0ff; --accent2:#ff4dd2; --ok:#77f2a1; --warn:#ffcc66; --bad:#ff6b8a;
+      --glass:rgba(255,255,255,.06); --border:rgba(255,255,255,.12);
+      --shadow:0 10px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
+      --radius:16px; --maxw:980px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; color:var(--txt); background:var(--bg); font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif; -webkit-font-smoothing:antialiased}
+    a{color:inherit; text-decoration:none}
+    .container{width:100%; max-width:var(--maxw); margin:0 auto; padding:0 16px}
+
+    .bg{position:fixed; inset:0; z-index:-2; background:
+      radial-gradient(55vw 55vw at 15% 10%, rgba(77,208,255,.25), transparent 60%),
+      radial-gradient(45vw 45vw at 90% 0%, rgba(255,77,210,.20), transparent 60%),
+      radial-gradient(35vw 35vw at 70% 80%, rgba(105,92,255,.18), transparent 60%),
+      linear-gradient(180deg, #0b0720 0%, #08051a 100%);}
+    .blob{position:fixed; width:48vmin; height:48vmin; border-radius:50%; filter:blur(18px); mix-blend-mode:screen; opacity:.45; z-index:-1; animation:drift 26s ease-in-out infinite}
+    .blob.b2{right:-8vmin; top:8vmin; background:radial-gradient(circle at 70% 40%, rgba(255,77,210,.25), rgba(77,208,255,.12)); animation-duration:30s}
+    .blob.b1{left:-6vmin; top:20vmin; background:radial-gradient(circle at 30% 30%, rgba(77,208,255,.25), rgba(255,77,210,.15))}
+    @keyframes drift{0%{transform:translate(-5vmin,0)}50%{transform:translate(6vmin,2vmin)}100%{transform:translate(-5vmin,0)}}
+
+    header{position:sticky; top:0; background:linear-gradient(

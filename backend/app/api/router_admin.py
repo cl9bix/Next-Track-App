@@ -34,7 +34,7 @@ def _parse_dt(s: str) -> Optional[datetime]:
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("admin_login.html", {"request": request, "error": None})
+    return templates.TemplateResponse("login.html", {"request": request, "error": None})
 
 
 @router.post("/login")
@@ -50,7 +50,7 @@ async def admin_login(
 
     if not admin or not admin.is_active or not verify_password(password, admin.password_hash):
         return templates.TemplateResponse(
-            "admin_login.html",
+            "login.html",
             {"request": request, "error": "Invalid credentials"},
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
@@ -62,7 +62,7 @@ async def admin_login(
         token,
         httponly=True,
         samesite="lax",
-        secure=True,          # якщо https (через NPM/Cloudflare) — залишай True
+        secure=True,
         max_age=60 * 60 * 12,
     )
     return resp
