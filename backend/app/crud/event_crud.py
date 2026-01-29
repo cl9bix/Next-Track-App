@@ -25,6 +25,7 @@ async def list_events(db: AsyncSession) -> List[EventResponse]:
 
 
 async def get_latest_event_by_club_slug(db: AsyncSession, club_slug: str) -> EventResponse:
+    print(f"Starting to get_latest_event_by_club_slug with:({club_slug}) !!!")
     club = (await db.execute(select(Club).where(Club.slug == club_slug))).scalar_one_or_none()
     if not club:
         raise HTTPException(404, "Club not found")
