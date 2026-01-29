@@ -267,10 +267,10 @@
 
     const EVENT_SLUG = fromQuery || fromPath;
 
-    if (!EVENT_SLUG) {
-      location.replace('/404');
-      throw new Error('Missing event slug');
-    }
+    {#if (!EVENT_SLUG) {#}
+    {#  location.replace('/404');#}
+    {#  throw new Error('Missing event slug');#}
+    {#}#}
 
 
 
