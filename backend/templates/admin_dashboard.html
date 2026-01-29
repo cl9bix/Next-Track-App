@@ -116,7 +116,6 @@
       <div class="actions">
         <a class="btn primary" href="/admin/events/new">➕ Create event</a>
 
-        <!-- Logout: you can implement POST /admin/logout that clears cookie -->
         <form method="post" action="/admin/logout" style="margin:0">
           <button class="btn ghost" type="submit">🚪 Logout</button>
         </form>
@@ -141,44 +140,41 @@
 
   <section class="card">
     <div class="list" id="eventsList">
-      <div class="empty">Loading…</div>
+      <div class="empty" id="loadingBox">Loading…</div>
     </div>
   </section>
 </main>
 
 <script>
-  // Optional: server can inject club/admin data into window.__ADMIN__ via Jinja.
-  // Example:
-  // <script>window.__ADMIN__={{ admin | tojson }}; window.__CLUB__={{ club | tojson }};</script>
 
   const $list = document.getElementById('eventsList');
+  const $loading = document.getElementById('loadingBox');
   const $club = document.getElementById('clubName');
   const $kTotal = document.getElementById('kpiTotal');
   const $kLive = document.getElementById('kpiLive');
   const $kUpcoming = document.getElementById('kpiUpcoming');
 
-  // If you don't render server data, you can just keep placeholders.
-  try{
-    if(window.__CLUB__?.name) $club.textContent = window.__CLUB__.name;
-  }catch{}
+  try {
+    if (window.__CLUB__?.name) $club.textContent = window.__CLUB__.name;
+  } catch {}
 
   function fmtDT(s){
     if(!s) return '—';
     const d = new Date(s);
-    if(Number.isNaN(d.getTime())) return s;
+    if(Number.isNaN(d.getTime())) return String(s);
     return d.toLocaleString(undefined, {year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit'});
   }
 
   function statusOf(ev){
-    // If your backend returns status, use it.
-    // Fallback: infer from start/end vs now
+    if(!ev || typeof ev !== 'object') return 'scheduled';
+    if (ev.status) return String(ev.status).toLowerCase();
+
     const now = Date.now();
-    const st = ev.status;
-    if(st) return st;
     const start = ev.start_date ? new Date(ev.start_date).getTime() : 0;
     const end = ev.end_date ? new Date(ev.end_date).getTime() : 0;
-    if(end && now > end) return 'ended';
-    if(start && now >= start && (!end || now < end)) return 'live';
+
+    if (end && now > end) return 'ended';
+    if (start && now >= start && (!end || now < end)) return 'live';
     return 'scheduled';
   }
 
@@ -189,14 +185,25 @@
   }
 
   function buildShareLink(ev){
-    // Telegram Mini App link example:
-    // https://t.me/next_track_bot?startapp=event_<id>
-    // For MVP we show a simple web link:
+    if (ev?.share_url) return String(ev.share_url);
+
+    const bot = window.__CONFIG__?.telegram_bot; // e.g. "next_track_bot"
+    if (bot && ev?.id != null) {
+      return `https://t.me/${encodeURIComponent(bot)}?startapp=event_${encodeURIComponent(ev.id)}`;
+    }
+
     const base = location.origin;
-    return `${base}/?event=${encodeURIComponent(ev.id)}`;
+    if (ev?.id != null) return `${base}/?event=${encodeURIComponent(ev.id)}`;
+    return base + '/';
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   }
 
   function render(events){
+    if ($loading) $loading.remove();
+
     if(!Array.isArray(events) || !events.length){
       $list.innerHTML = `<div class="empty">No events yet. Create the first one ✨</div>`;
       $kTotal.textContent = '0';
@@ -219,18 +226,22 @@
     $list.innerHTML = events.map(ev=>{
       const st = statusOf(ev);
       const share = buildShareLink(ev);
-      const subtitle = `${fmtDT(ev.start_date)} → ${fmtDT(ev.end_date)}`;
+      const subtitle = `${fmtDT(ev?.start_date)} → ${fmtDT(ev?.end_date)}`;
+
       return `
         <div class="item">
           <div class="art" aria-hidden="true"></div>
           <div class="body">
-            <div class="name">${escapeHtml(ev.title || 'Untitled')}</div>
-            <div class="meta">${escapeHtml(subtitle)} · <span class="badge"><span class="dot ${dotClass(st)}"></span>${st.toUpperCase()}</span></div>
-            <div class="meta mono">Event ID: ${escapeHtml(String(ev.id))}</div>
+            <div class="name">${escapeHtml(ev?.title || 'Untitled')}</div>
+            <div class="meta">
+              ${escapeHtml(subtitle)} ·
+              <span class="badge"><span class="dot ${dotClass(st)}"></span>${escapeHtml(st.toUpperCase())}</span>
+            </div>
+            <div class="meta mono">Event ID: ${escapeHtml(String(ev?.id ?? '—'))}</div>
           </div>
           <div class="right">
-            <button class="small" data-copy="${encodeURIComponent(share)}">Copy link</button>
-            <a class="small" href="/admin/events/new?clone=${encodeURIComponent(ev.id)}" title="Create similar event">Clone</a>
+            <button class="small" type="button" data-copy="${encodeURIComponent(share)}">Copy link</button>
+            <a class="small" href="/admin/events/new?clone=${encodeURIComponent(ev?.id ?? '')}" title="Create similar event">Clone</a>
           </div>
         </div>
       `;
@@ -250,26 +261,22 @@
     });
   }
 
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-  }
-
   async function load(){
-    // Option A (best): render events server-side via Jinja in window.__EVENTS__
-    if(Array.isArray(window.__EVENTS__)){
+    if (Array.isArray(window.__EVENTS__)) {
       render(window.__EVENTS__);
       return;
     }
 
-    // Option B: fetch JSON endpoint if you have it
-    // e.g. GET /admin/api/events -> [{...}]
     try{
-      const res = await fetch('/admin/api/events', { headers:{'Accept':'application/json'} });
+      const res = await fetch('/admin/api/events', {
+        method: 'GET',
+        headers: {'Accept':'application/json'},
+        credentials: 'same-origin',
+      });
       if(!res.ok) throw new Error('no api');
       const data = await res.json();
       render(data);
     }catch{
-      // fallback empty
       render([]);
     }
   }
