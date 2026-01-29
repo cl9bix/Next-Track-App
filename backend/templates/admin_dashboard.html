@@ -156,9 +156,16 @@
               <div class="meta mono">Event ID: {{ ev.id }}</div>
             </div>
             <div class="right">
-              <button class="small" type="button" data-share="/?event={{ ev.id }}">Copy link</button>
-              <a class="small" href="/admin/events/new?clone={{ ev.id }}" title="Create similar event">Clone</a>
-            </div>
+  <a class="small" href="/admin/events/{{ ev.id }}/edit">✏️ Edit</a>
+
+  <form method="post"
+        action="/admin/events/{{ ev.id }}/delete"
+        onsubmit="return confirm('Delete this event?');"
+        style="margin:0">
+    <button class="small" type="submit">🗑 Delete</button>
+  </form>
+</div>
+
           </div>
         {% endfor %}
       {% else %}

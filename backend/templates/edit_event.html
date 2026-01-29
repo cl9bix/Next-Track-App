@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Next Track — Edit Event</title>
+  <meta http-equiv="Cache-Control" content="no-store" />
+
+  <style>
+    /* === SAME STYLE AS create_event.html === */
+    :root{
+      --bg:#0b0720; --txt:#f0eff6; --muted:#b8b6d3;
+      --accent1:#4dd0ff; --accent2:#ff4dd2;
+      --glass:rgba(255,255,255,.06); --border:rgba(255,255,255,.12);
+      --shadow:0 10px 40px rgba(0,0,0,.45);
+    }
+    *{box-sizing:border-box}
+    body{margin:0; background:var(--bg); color:var(--txt); font-family:Inter,system-ui}
+    .container{max-width:980px; margin:0 auto; padding:16px}
+
+    .card{background:var(--glass); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow)}
+    .panel{padding:16px}
+    .ttl{font-weight:950; font-size:18px}
+    .sub{color:var(--muted); font-size:13px}
+
+    .form{display:grid; gap:12px; margin-top:12px}
+    label{display:grid; gap:6px; font-size:12px; color:var(--muted)}
+    input, textarea{
+      background:rgba(255,255,255,.06);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:12px 14px;
+      color:var(--txt);
+    }
+    textarea{min-height:80px}
+    .row{display:flex; gap:10px; justify-content:space-between; flex-wrap:wrap}
+
+    .btn{
+      padding:12px 14px; border-radius:12px; font-weight:900;
+      background:linear-gradient(135deg, rgba(77,208,255,.3), rgba(255,77,210,.3));
+      border:1px solid rgba(255,255,255,.25); color:var(--txt); cursor:pointer;
+    }
+    .btn.ghost{background:transparent}
+
+    .dj{display:flex; gap:10px; align-items:center; padding:10px;
+      background:rgba(255,255,255,.05); border:1px solid var(--border); border-radius:12px}
+    .djlist{display:grid; gap:10px}
+    @media(min-width:720px){.djlist{grid-template-columns:1fr 1fr}}
+
+    .err{padding:10px; border-radius:12px; background:rgba(255,107,138,.1);
+      border:1px solid rgba(255,107,138,.35); font-weight:900}
+  </style>
+</head>
+
+<body>
+<div class="container">
+  <section class="card panel">
+    <div class="ttl">Edit event</div>
+    <div class="sub">Update event details and DJs</div>
+
+    {% if error %}
+      <div class="err">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/admin/events/{{ event.id }}/edit" class="form" id="form">
+      <label>
+        Title
+        <input name="title" required value="{{ event.title }}">
+      </label>
+
+      <label>
+        Preview
+        <textarea name="preview">{{ event.preview or "" }}</textarea>
+      </label>
+
+      <label>
+        Start date (UTC)
+        <input name="start_date" value="{{ event.start_date.isoformat() if event.start_date else "" }}">
+      </label>
+
+      <label>
+        End date (UTC)
+        <input name="end_date" value="{{ event.end_date.isoformat() if event.end_date else "" }}">
+      </label>
+
+      <section class="card panel">
+        <div class="ttl" style="font-size:15px">DJs</div>
+        <div class="djlist">
+          {% for dj in djs %}
+            <label class="dj">
+              <input type="checkbox" class="dj-cb" value="{{ dj.id }}"
+                {% if dj.id in linked_dj_ids %}checked{% endif %}>
+              <strong>{{ dj.name }}</strong>
+            </label>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="dj_ids" id="djIds">
+      </section>
+
+      <div class="row">
+        <button class="btn" type="submit">💾 Save changes</button>
+        <a class="btn ghost" href="/admin/">← Cancel</a>
+      </div>
+    </form>
+  </section>
+</div>
+
+<script>
+  const djIds = document.getElementById('djIds');
+  const cbs = document.querySelectorAll('.dj-cb');
+
+  function sync(){
+    djIds.value = [...cbs].filter(c=>c.checked).map(c=>c.value).join(',');
+  }
+  cbs.forEach(cb=>cb.addEventListener('change', sync));
+  sync();
+</script>
+</body>
+</html>

@@ -249,3 +249,114 @@ async def end_event(
     ev.end_date = datetime.now(timezone.utc)
     await db.commit()
     return RedirectResponse(url="/admin/", status_code=303)
+
+@router.post("/events/{event_id}/delete")
+async def delete_event(
+    event_id: int,
+    me: AdminUser = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    ev = (
+        await db.execute(
+            select(Event).where(
+                Event.id == event_id,
+                Event.club_id == me.club_id,
+            )
+        )
+    ).scalar_one_or_none()
+
+    if not ev:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # якщо є звʼязки (EventDJ) — краще прибрати
+    await db.execute(
+        select(EventDJ).where(EventDJ.event_id == ev.id)
+    )
+    await db.delete(ev)
+    await db.commit()
+
+    return RedirectResponse(url="/admin/", status_code=303)
+
+@router.get("/events/{event_id}/edit", response_class=HTMLResponse)
+async def edit_event_form(
+    request: Request,
+    event_id: int,
+    me: AdminUser = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    ev = (
+        await db.execute(
+            select(Event).where(
+                Event.id == event_id,
+                Event.club_id == me.club_id,
+            )
+        )
+    ).scalar_one_or_none()
+
+    if not ev:
+        raise HTTPException(404, "Event not found")
+
+    djs = (await db.execute(select(Dj).order_by(Dj.name.asc()))).scalars().all()
+
+    linked_djs = (
+        await db.execute(
+            select(EventDJ.dj_id).where(EventDJ.event_id == ev.id)
+        )
+    ).scalars().all()
+
+    return templates.TemplateResponse(
+        "edit_event.html",
+        {
+            "request": request,
+            "admin": admin_to_dict(me),
+            "event": ev,
+            "djs": djs,
+            "linked_dj_ids": set(linked_djs),
+            "error": None,
+        },
+    )
+
+@router.post("/events/{event_id}/edit")
+async def edit_event_submit(
+    request: Request,
+    event_id: int,
+    title: str = Form(...),
+    preview: str = Form(""),
+    start_date: str = Form(""),
+    end_date: str = Form(""),
+    dj_ids: Optional[str] = Form(None),
+    me: AdminUser = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    ev = (
+        await db.execute(
+            select(Event).where(
+                Event.id == event_id,
+                Event.club_id == me.club_id,
+            )
+        )
+    ).scalar_one_or_none()
+
+    if not ev:
+        raise HTTPException(404, "Event not found")
+
+    ev.title = title.strip()
+    ev.preview = preview.strip() or None
+    ev.start_date = _parse_dt(start_date)
+    ev.end_date = _parse_dt(end_date)
+
+    # DJ relations
+    await db.execute(
+        select(EventDJ).where(EventDJ.event_id == ev.id)
+    )
+    await db.execute(
+        EventDJ.__table__.delete().where(EventDJ.event_id == ev.id)
+    )
+
+    if dj_ids:
+        ids = [int(x) for x in dj_ids.split(",") if x.isdigit()]
+        for dj_id in set(ids):
+            db.add(EventDJ(event_id=ev.id, dj_id=dj_id))
+
+    await db.commit()
+    return RedirectResponse(url="/admin/", status_code=303)
