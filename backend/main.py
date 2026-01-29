@@ -11,7 +11,7 @@ from app.api.auth_telegram_webapp import router as tg_auth_router
 from app.api.routes_event_runtime_tg import router as events_router
 from app.api.router_search import router as search_router
 from app.api.ws import router as ws_router
-from app.api.router_admin_panel import router as admin_router
+from app.api.router_admin import router as admin_router
 
 app = FastAPI(title="Next Track API")
 
