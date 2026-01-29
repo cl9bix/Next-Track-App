@@ -3,10 +3,11 @@ from typing import List, Optional
 from fastapi import HTTPException, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.models import Event, Round
+from sqlalchemy import desc
+from app.models.models import Event, Round,Club
 from app.schemas.schemas import EventCreate, EventUpdate, EventResponse, RoundResponse
 from app.services.live_bus import publish_event
+from watchfiles import awatch
 
 
 def to_event(e: Event) -> EventResponse:
@@ -20,12 +21,25 @@ async def list_events(db: AsyncSession) -> List[EventResponse]:
     return [to_event(e) for e in res.scalars().all()]
 
 
-async def get_event(db: AsyncSession, event_id: int) -> EventResponse:
-    res = await db.execute(select(Event).where(Event.id == event_id))
-    e = res.scalar_one_or_none()
-    if not e:
-        raise HTTPException(status_code=404, detail="Event not found")
-    return to_event(e)
+
+
+
+async def get_latest_event_by_club_slug(db: AsyncSession, club_slug: str) -> EventResponse:
+    club = (await db.execute(select(Club).where(Club.slug == club_slug))).scalar_one_or_none()
+    if not club:
+        raise HTTPException(404, "Club not found")
+
+    ev = (await db.execute(
+        select(Event)
+        .where(Event.club_id == club.id)
+        .order_by(desc(Event.created_at), desc(Event.id))
+        .limit(1)
+    )).scalar_one_or_none()
+
+    if not ev:
+        raise HTTPException(404, "Event not found")
+
+    return to_event(ev)
 
 
 async def create_event(db: AsyncSession, payload: EventCreate) -> EventResponse:
