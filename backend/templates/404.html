@@ -1,0 +1,105 @@
+<!-- templates/404.html -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Next Track — 404</title>
+  <meta name="description" content="Page not found." />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+
+  <style>
+    :root{
+      --bg:#0b0720; --bg2:#09061f;
+      --txt:#f0eff6; --muted:#b8b6d3;
+      --accent1:#4dd0ff; --accent2:#ff4dd2;
+      --glass:rgba(255,255,255,.06); --border:rgba(255,255,255,.12);
+      --shadow:0 10px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
+      --radius:16px; --maxw:820px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; color:var(--txt); background:var(--bg); font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif; -webkit-font-smoothing:antialiased}
+    a{color:inherit; text-decoration:none}
+    .container{width:100%; max-width:var(--maxw); margin:0 auto; padding:0 16px}
+
+    .bg{position:fixed; inset:0; z-index:-2; background:
+      radial-gradient(55vw 55vw at 15% 10%, rgba(77,208,255,.25), transparent 60%),
+      radial-gradient(45vw 45vw at 90% 0%, rgba(255,77,210,.20), transparent 60%),
+      radial-gradient(35vw 35vw at 70% 80%, rgba(105,92,255,.18), transparent 60%),
+      linear-gradient(180deg, #0b0720 0%, #08051a 100%);}
+    .blob{position:fixed; width:48vmin; height:48vmin; border-radius:50%; filter:blur(18px); mix-blend-mode:screen; opacity:.45; z-index:-1; animation:drift 26s ease-in-out infinite}
+    .blob.b2{right:-8vmin; top:8vmin; background:radial-gradient(circle at 70% 40%, rgba(255,77,210,.25), rgba(77,208,255,.12)); animation-duration:30s}
+    .blob.b1{left:-6vmin; top:20vmin; background:radial-gradient(circle at 30% 30%, rgba(77,208,255,.25), rgba(255,77,210,.15))}
+    @keyframes drift{0%{transform:translate(-5vmin,0)}50%{transform:translate(6vmin,2vmin)}100%{transform:translate(-5vmin,0)}}
+
+    header{position:sticky; top:0; background:linear-gradient(180deg, rgba(8,5,26,.7), rgba(8,5,26,.25));
+      backdrop-filter:blur(8px) saturate(140%); border-bottom:1px solid var(--border); z-index:5}
+    .topbar{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 0}
+    .brand{display:flex; align-items:center; gap:10px}
+    .brand img{width:32px; height:32px; border-radius:8px}
+    .brand b{letter-spacing:.2px}
+    .pill{display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px;
+      background:var(--glass); border:1px solid var(--border); box-shadow:var(--shadow); font-weight:800}
+
+    .wrap{min-height:calc(100% - 60px); display:flex; align-items:center; padding:24px 0}
+    .card{background:var(--glass); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
+    .panel{max-width:520px; margin:0 auto; padding:18px}
+    .ttl{font-weight:950; font-size:22px; letter-spacing:.2px}
+    .sub{color:var(--muted); font-size:13px; line-height:1.4; margin-top:8px}
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:14px}
+
+    .btn{
+      border:none; padding:12px 14px; border-radius:12px; font-weight:950; cursor:pointer;
+      background:linear-gradient(135deg, rgba(77,208,255,.18), rgba(255,77,210,.18));
+      border:1px solid rgba(255,255,255,.22);
+      color:var(--txt);
+      display:inline-flex; align-items:center; gap:8px;
+    }
+    .btn.primary{background:linear-gradient(135deg, rgba(77,208,255,.30), rgba(255,77,210,.30)); border-color:rgba(255,255,255,.28)}
+    .btn.ghost{background:transparent}
+    .code{margin-top:10px; display:inline-flex; gap:8px; align-items:center; padding:8px 10px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.05); color:var(--muted); font-weight:900; font-size:12px}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+  </style>
+</head>
+
+<body>
+<div class="bg"></div>
+<div class="blob b1"></div><div class="blob b2"></div>
+
+<header>
+  <div class="container topbar">
+    <div class="brand">
+      <img src="/static/logo.jpg" alt="Next Track" />
+      <div>
+        <b>Next Track</b>
+        <div class="sub">User view</div>
+      </div>
+    </div>
+    <div class="pill">🚫 404</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="container">
+    <section class="card panel">
+      <div class="ttl">Page not found</div>
+      <div class="sub">
+        This link doesn’t contain an event parameter.<br/>
+        Scan the club QR code or open the event link from Telegram.
+      </div>
+
+      <div class="code">Expected: <span class="mono">?event=&lt;id&gt;</span></div>
+
+      <div class="row">
+        <a class="btn primary" href="https://t.me/next_track_bot" target="_blank" rel="noopener">📲 Open Telegram bot</a>
+        <a class="btn ghost" href="/" title="Home">← Home</a>
+      </div>
+
+    </section>
+  </div>
+</main>
+</body>
+</html>

@@ -107,7 +107,6 @@
         .hidden{display:none!important}
         .muted{color:var(--muted)}
 
-        /* Autocomplete */
         .ac{position:relative}
         .ac-list{
             position:absolute;
@@ -142,7 +141,7 @@
     <header>
         <div class="container topbar">
             <div class="brand">
-                <img src="../static/logo.jpg" alt="Next Track" />
+                <img src="/static/logo.jpg" alt="Next Track" />
                 <div>
                     <b>Next Track</b>
                     <div class="sub muted i18n" data-key="subtitle_en">Vote & suggest in real time</div>
@@ -151,7 +150,7 @@
             </div>
 
             <div style="display:flex; gap:8px; align-items:center">
-                <span class="event-pill">🎧 <span id="djName">...</span> • <span id="eventName">...</span></span>
+                <span class="event-pill">🎧 <span id="djName">—</span> • <span id="eventName">—</span></span>
                 <div class="lang-toggle">
                     <button data-lang="en" class="active">EN</button>
                     <button data-lang="ru">RU</button>
@@ -162,7 +161,6 @@
 
     <main class="views">
         <div class="container">
-            <!-- Now playing -->
             <section class="now card">
                 <div class="inner">
                     <div class="cover" id="nowCover" aria-hidden="true"></div>
@@ -177,7 +175,6 @@
                 </div>
             </section>
 
-            <!-- Screens -->
             <section id="queue" class="screen active card">
                 <div class="list" id="queueList"></div>
             </section>
@@ -239,8 +236,8 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
     // ================== CONFIG ==================
-    // Put your public ngrok/https base here (no trailing slash)
-    const API_BASE = 'https://unsyncopated-shufflingly-gerald.ngrok-free.dev';
+    // If empty => use current origin
+    const API_BASE = ('' || window.location.origin).replace(/\/$/, '');
 
     const EP = {
         authWebApp: (initData) => `${API_BASE}/auth/telegram/webapp?init_data=${encodeURIComponent(initData)}`,
@@ -256,7 +253,13 @@
     const byId = id => document.getElementById(id);
 
     const qs = new URLSearchParams(location.search);
-    const EVENT_ID = qs.get('event') || '1';
+    const EVENT_ID = qs.get('event');
+
+    // ✅ no event => 404
+    if (!EVENT_ID) {
+        location.replace('/404');
+        throw new Error('Missing ?event=');
+    }
 
     const state = {
         token: null,
@@ -280,7 +283,7 @@
             ...opts,
             headers:{ 'Accept':'application/json', ...(opts.headers||{}), ...authHeaders() }
         });
-        if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        if(!res.ok) throw new Error(String(res.status));
         return await res.json();
     }
 
@@ -290,7 +293,7 @@
             headers:{ 'Content-Type':'application/json', ...authHeaders() },
             body: JSON.stringify(body||{})
         });
-        if(!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        if(!res.ok) throw new Error(String(res.status));
         return await res.json();
     }
 
@@ -326,6 +329,15 @@
         byId('userId').textContent = state.user?.tg_id ? `id: ${state.user.tg_id}` : '';
         const img = state.user?.img;
         if(img) byId('avatar').style.backgroundImage = `url("${img}")`;
+    }
+
+    function renderEventHeader(){
+        const title = state.event?.title || '—';
+        byId('eventName').textContent = title;
+
+        // If backend later returns DJ info, use it:
+        const dj = state.event?.dj_name || state.event?.dj?.name || '—';
+        byId('djName').textContent = dj;
     }
 
     function setNowPlaying(track){
@@ -376,19 +388,19 @@
             const cover = (t.cover_url || '');
 
             const votes = Number(t.votes || 0);
-            const percent = Math.max(0, Math.min(100, votes)); // MVP визуал, позже нормализуем
+            const percent = Math.max(0, Math.min(100, votes));
 
             row.innerHTML = `
-        <div class="art" style="${cover ? `background-image:url('${cover.replaceAll("'","%27")}')` : ''}" aria-hidden="true"></div>
-        <div class="body">
-          <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
-          <div class="note muted">${t.note || ''}</div>
-          <div class="bar" style="--p:${percent}%; --t:0%">
-            <span class="v"></span><span class="t"></span>
-          </div>
-        </div>
-        <button class="vote ${voted?'voted':''}" data-id="${id}" ${(!state.votingOpen || voted) ? 'disabled' : ''}>${voted?'Voted':'Vote'}</button>
-      `;
+                <div class="art" style="${cover ? `background-image:url('${cover.replaceAll("'","%27")}')` : ''}" aria-hidden="true"></div>
+                <div class="body">
+                  <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
+                  <div class="note muted">${t.note || ''}</div>
+                  <div class="bar" style="--p:${percent}%; --t:0%">
+                    <span class="v"></span><span class="t"></span>
+                  </div>
+                </div>
+                <button class="vote ${voted?'voted':''}" data-id="${id}" ${(!state.votingOpen || voted) ? 'disabled' : ''}>${voted?'Voted':'Vote'}</button>
+            `;
             qWrap.appendChild(row);
         }
 
@@ -414,8 +426,7 @@
         const ids = Array.from(state.myVotes);
         if(!ids.length){
             box.innerHTML = `<div class="empty i18n" data-key="empty_en">You have not voted yet.</div>
-                       <div class="empty i18n hidden" data-key="empty_ru">Вы ещё не голосовали.</div>`;
-            // refresh visibility based on current language
+                             <div class="empty i18n hidden" data-key="empty_ru">Вы ещё не голосовали.</div>`;
             setLang(state.lang);
             return;
         }
@@ -430,15 +441,15 @@
             const title = (t.title || t.name || 'Untitled');
             const artist = (t.artist || '');
             return `
-        <div class="row">
-          <div class="art" style="${cover ? `background-image:url('${cover.replaceAll("'","%27")}')` : ''}"></div>
-          <div class="body">
-            <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
-            <div class="note muted">${t.note||''}</div>
-            <div class="bar" style="--p:0%; --t:0%"><span class="v"></span><span class="t"></span></div>
-          </div>
-          <div class="vote voted">Voted</div>
-        </div>`;
+                <div class="row">
+                  <div class="art" style="${cover ? `background-image:url('${cover.replaceAll("'","%27")}')` : ''}"></div>
+                  <div class="body">
+                    <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
+                    <div class="note muted">${t.note||''}</div>
+                    <div class="bar" style="--p:0%; --t:0%"><span class="v"></span><span class="t"></span></div>
+                  </div>
+                  <div class="vote voted">Voted</div>
+                </div>`;
         }).join('');
 
         box.innerHTML = `<div class="list">${rows}</div>`;
@@ -455,56 +466,39 @@
         }
 
         byId('nowTimer').textContent = text;
-        requestAnimationFrame(()=>{}); // no-op, just keeps it smooth
     }
 
     // ================== DATA ==================
     async function refreshEvent(){
-        if(!EVENT_ID) return;
-        const data = await getJSON(EP.event(EVENT_ID));
-        state.event = data;
+        try{
+            const data = await getJSON(EP.event(EVENT_ID));
+            state.event = data;
+            renderEventHeader();
 
-        // state from backend
-        const st = data?.state || {};
-        state.votingOpen = (st.voting_open === "1");
-        state.voteClosesAt = Number(st.vote_closes_at || 0);
-        state.trackEndsAt = Number(st.track_ends_at || 0);
+            const st = data?.state || {};
+            state.votingOpen = (st.voting_open === "1");
+            state.voteClosesAt = Number(st.vote_closes_at || 0);
+            state.trackEndsAt = Number(st.track_ends_at || 0);
 
-        // now playing
-        // (we mostly update via WS, but on initial load we can try to show current track if backend sends it)
-        // If you later send track payload in /event response, set it here.
-        updateNowTimer();
+            updateNowTimer();
+        }catch(e){
+            // ✅ event not found => 404
+            location.replace('/404');
+            throw e;
+        }
     }
 
     async function refreshQueue(){
-        if(!EVENT_ID) return;
-        const data = await getJSON(EP.queue(EVENT_ID));
-        state.queue = (data && data.items) ? data.items : [];
-        renderQueue();
-        renderMine();
-    }
-
-    // ================== SUGGEST ==================
-    byId('add').addEventListener('click', async ()=>{
-        const raw = byId('q').value.trim();
-        if(!raw || !EVENT_ID) return;
-
-        // Parse "Track — Artist"
-        const parts = raw.split(/ — | - | – /);
-        const title = (parts[0]||'').trim();
-        const artist = (parts[1]||'').trim();
-
         try{
-            await postJSON(EP.suggest(EVENT_ID), { title, artist });
-            byId('q').value='';
-            hideAC();
-            await refreshQueue();
-            selectTab('queue');
-        }catch(err){
-            console.error(err);
-            alert('Suggest failed');
+            const data = await getJSON(EP.queue(EVENT_ID));
+            state.queue = (data && data.items) ? data.items : [];
+            renderQueue();
+            renderMine();
+        }catch(e){
+            // if queue fails because event not found -> 404
+            if(String(e.message) === '404') location.replace('/404');
         }
-    });
+    }
 
     // ================== PROFILE / NOTIFS ==================
     const tog = byId('notifs');
@@ -532,7 +526,6 @@
             renderUser();
             return payload;
         }catch(e){
-            console.error(e);
             const u = tg.initDataUnsafe.user;
             state.user = { tg_id: u?.id, tg_username: u?.username, img: u?.photo_url };
             renderUser();
@@ -542,12 +535,9 @@
 
     // ================== WEBSOCKET ==================
     function connectWS(){
-        if(!EVENT_ID) return;
-
-        const wsUrl = API_BASE.replace('https://','wss://') + `/ws/events/${EVENT_ID}`;
+        const wsBase = API_BASE.replace('https://','wss://').replace('http://','ws://');
+        const wsUrl = wsBase + `/ws/events/${EVENT_ID}`;
         const ws = new WebSocket(wsUrl);
-
-        ws.onopen = ()=> console.log('[ws] connected');
 
         ws.onmessage = (ev)=>{
             try{
@@ -580,154 +570,14 @@
         };
 
         ws.onclose = ()=>{
-            console.log('[ws] closed, reconnecting...');
             setTimeout(connectWS, 1500);
         };
     }
 
-    // ================== AUTOCOMPLETE (optional) ==================
+    // ================== AUTOCOMPLETE placeholders ==================
     const acBox = byId('acList');
     const qInput = byId('q');
-
-    let acTimer = null;
-    let acCtrl = null;
-    let lastQuery = '';
-    let isComposing = false;
-    let skipNextInputAfterComposition = false;
-
-    const acCache = new Map();
-    function cacheGet(key){ return acCache.get(key); }
-    function cacheSet(key,val){
-        if(acCache.has(key)) acCache.delete(key);
-        acCache.set(key,val);
-        if(acCache.size>50){ acCache.delete(acCache.keys().next().value); }
-    }
-
-    const sentAt = new Map();
-    function canSend(q){
-        const now = Date.now(), prev = sentAt.get(q)||0;
-        if(now - prev < 600) return false;
-        sentAt.set(q, now);
-        return true;
-    }
-
-    function normalizeItems(raw){
-        if(Array.isArray(raw)) return raw.map(normalizeOne);
-        if(raw?.items && Array.isArray(raw.items)) return raw.items.map(normalizeOne);
-        if(raw?.results && Array.isArray(raw.results)) return raw.results.map(normalizeOne);
-        return [];
-    }
-    function firstNonEmpty(...vals){
-        for(const v of vals){ if(v !== undefined && v !== null && String(v).trim() !== '') return v; }
-        return '';
-    }
-    function normalizeOne(it){
-        const id = it.id || it.trackId || it.key || cryptoRandomId();
-        const title = firstNonEmpty(it.title, it.name, it.trackName, it.song, it.track, it.label);
-        const artist = firstNonEmpty(it.artist, it.artistName, it.author, it.singer);
-        const album = firstNonEmpty(it.album, it.albumName, it.collectionName);
-        const cover = firstNonEmpty(it.cover_url, it.thumbnail, it.image, it.picture, it.artworkUrl100, it.artworkUrl60);
-        const duration_sec = Number(it.duration_sec || it.duration || 0) || null;
-        return { id, title: title || 'Untitled', artist, album, cover_url: cover || '', duration_sec };
-    }
-    function cryptoRandomId(){
-        try{ const a = new Uint32Array(2); crypto.getRandomValues(a); return 'x'+a[0].toString(36)+a[1].toString(36); }
-        catch{ return 'x'+Math.random().toString(36).slice(2); }
-    }
-
-    async function apiSearch(q){
-        const cached = cacheGet(q);
-        if(cached) return cached;
-
-        if(acCtrl) acCtrl.abort();
-        acCtrl = new AbortController();
-
-        const url = EP.search(q, 15);
-        const res = await fetch(url, {
-            headers: { 'Accept':'application/json', ...authHeaders(), 'Accept-Language': state.lang || 'en' },
-            signal: acCtrl.signal
-        });
-        if(!res.ok) throw new Error('search failed');
-
-        const raw = await res.json();
-        const items = normalizeItems(raw);
-        cacheSet(q, items);
-        return items;
-    }
-
     function hideAC(){ acBox.classList.add('hidden'); acBox.innerHTML=''; }
-    function showAC(items){
-        acBox.innerHTML = items.length
-            ? items.map(it=>`
-          <div class="ac-item"
-               data-title="${encodeURIComponent(it.title||'')}"
-               data-artist="${encodeURIComponent(it.artist||'')}"
-               data-id="${encodeURIComponent(it.id||'')}"
-               data-cover="${encodeURIComponent(it.cover_url||'')}"
-               data-dur="${encodeURIComponent(String(it.duration_sec||''))}">
-            <div class="ac-cover" style="background-image:url('${(it.cover_url||'').replaceAll('"','%22')}')"></div>
-            <div>
-              <div class="ac-title">${(it.title||'Untitled')}</div>
-              <div class="ac-sub">${(it.artist||'')}${it.album ? ' — '+it.album : ''}</div>
-            </div>
-          </div>`).join('')
-            : `<div class="ac-item" style="opacity:.7; cursor:default">No results</div>`;
-        acBox.classList.remove('hidden');
-    }
-
-    qInput.addEventListener('compositionstart', ()=>{ isComposing = true; });
-    qInput.addEventListener('compositionend',   ()=>{
-        isComposing = false;
-        skipNextInputAfterComposition = true;
-        triggerSearch(qInput.value.trim());
-    });
-
-    qInput.addEventListener('input', (e)=>{
-        if (skipNextInputAfterComposition) { skipNextInputAfterComposition = false; return; }
-        if (isComposing) return;
-        triggerSearch(e.target.value.trim());
-    });
-
-    function triggerSearch(q){
-        clearTimeout(acTimer);
-        if(q.length < 2){ hideAC(); lastQuery=''; return; }
-        acTimer = setTimeout(async ()=>{
-            if(q === lastQuery || !canSend(q)) return;
-            try{
-                const items = await apiSearch(q);
-                lastQuery = q;
-                showAC(items);
-            }catch(err){
-                if(err?.name !== 'AbortError'){ console.error(err); hideAC(); }
-            }
-        }, 350);
-    }
-
-    acBox.addEventListener('click', async (e)=>{
-        const item = e.target.closest('.ac-item'); if(!item) return;
-
-        const title = decodeURIComponent(item.dataset.title || '');
-        const artist = decodeURIComponent(item.dataset.artist || '');
-        const id = decodeURIComponent(item.dataset.id || '');
-        const cover_url = decodeURIComponent(item.dataset.cover || '');
-        const duration_sec = Number(decodeURIComponent(item.dataset.dur || '')) || null;
-
-        hideAC();
-
-        try{
-            // send full track payload -> backend can create track_id + store to redis
-            await postJSON(EP.suggest(EVENT_ID), { title, artist, track_id: id, cover_url, duration_sec });
-            selectTab('queue');
-            qInput.value = '';
-            await refreshQueue();
-        }catch(err){
-            console.error(err);
-            alert('Send failed');
-        }
-    });
-
-    qInput.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') hideAC(); });
-    qInput.addEventListener('blur', ()=>{ setTimeout(hideAC, 120); });
 
     // ================== INIT ==================
     async function init(){
@@ -738,13 +588,13 @@
         }
 
         await authViaTelegram();
-        await refreshEvent().catch(()=>{});
-        await refreshQueue().catch(()=>{});
+        await refreshEvent();
+        await refreshQueue();
         connectWS();
 
-        // timer loop
         setInterval(updateNowTimer, 500);
     }
+
     init();
 </script>
 </body>
