@@ -1,136 +1,136 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Next Track — User</title>
-    <meta name="description" content="Next Track — User view: vote, suggest, see what's next." />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Next Track — User</title>
+  <meta name="description" content="Next Track — User view: vote, suggest, see what's next." />
 
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta http-equiv="Cache-Control" content="no-store" />
-    <link rel="preconnect" href="https://api.telegram.org" crossorigin>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <link rel="preconnect" href="https://api.telegram.org" crossorigin>
 
-    <style>
-        :root{
-            --bg:#0b0720; --bg2:#09061f;
-            --txt:#f0eff6; --muted:#b8b6d3;
-            --accent1:#4dd0ff; --accent2:#ff4dd2; --ok:#77f2a1;
-            --glass:rgba(255,255,255,.06); --border:rgba(255,255,255,.12);
-            --shadow:0 10px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
-            --radius:16px; --maxw:820px;
-        }
-        *{box-sizing:border-box}
-        html,body{height:100%}
-        body{margin:0; color:var(--txt); background:var(--bg); font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif; -webkit-font-smoothing:antialiased}
-        a{color:inherit; text-decoration:none}
-        .app{min-height:100%; display:flex; flex-direction:column}
-        .container{width:100%; max-width:var(--maxw); margin:0 auto; padding:0 16px}
+  <style>
+    :root{
+      --bg:#0b0720; --bg2:#09061f;
+      --txt:#f0eff6; --muted:#b8b6d3;
+      --accent1:#4dd0ff; --accent2:#ff4dd2; --ok:#77f2a1;
+      --glass:rgba(255,255,255,.06); --border:rgba(255,255,255,.12);
+      --shadow:0 10px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
+      --radius:16px; --maxw:820px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; color:var(--txt); background:var(--bg); font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif; -webkit-font-smoothing:antialiased}
+    a{color:inherit; text-decoration:none}
+    .app{min-height:100%; display:flex; flex-direction:column}
+    .container{width:100%; max-width:var(--maxw); margin:0 auto; padding:0 16px}
 
-        .bg{position:fixed; inset:0; z-index:-2; background:
-                radial-gradient(55vw 55vw at 15% 10%, rgba(77,208,255,.25), transparent 60%),
-                radial-gradient(45vw 45vw at 90% 0%, rgba(255,77,210,.20), transparent 60%),
-                radial-gradient(35vw 35vw at 70% 80%, rgba(105,92,255,.18), transparent 60%),
-                linear-gradient(180deg, #0b0720 0%, #08051a 100%);}
-        .blob{position:fixed; width:48vmin; height:48vmin; border-radius:50%; filter:blur(18px); mix-blend-mode:screen; opacity:.45; z-index:-1; animation:drift 26s ease-in-out infinite}
-        .blob.b2{right:-8vmin; top:8vmin; background:radial-gradient(circle at 70% 40%, rgba(255,77,210,.25), rgba(77,208,255,.12)); animation-duration:30s}
-        .blob.b1{left:-6vmin; top:20vmin; background:radial-gradient(circle at 30% 30%, rgba(77,208,255,.25), rgba(255,77,210,.15))}
-        @keyframes drift{0%{transform:translate(-5vmin,0)}50%{transform:translate(6vmin,2vmin)}100%{transform:translate(-5vmin,0)}}
+    .bg{position:fixed; inset:0; z-index:-2; background:
+        radial-gradient(55vw 55vw at 15% 10%, rgba(77,208,255,.25), transparent 60%),
+        radial-gradient(45vw 45vw at 90% 0%, rgba(255,77,210,.20), transparent 60%),
+        radial-gradient(35vw 35vw at 70% 80%, rgba(105,92,255,.18), transparent 60%),
+        linear-gradient(180deg, #0b0720 0%, #08051a 100%);}
+    .blob{position:fixed; width:48vmin; height:48vmin; border-radius:50%; filter:blur(18px); mix-blend-mode:screen; opacity:.45; z-index:-1; animation:drift 26s ease-in-out infinite}
+    .blob.b2{right:-8vmin; top:8vmin; background:radial-gradient(circle at 70% 40%, rgba(255,77,210,.25), rgba(77,208,255,.12)); animation-duration:30s}
+    .blob.b1{left:-6vmin; top:20vmin; background:radial-gradient(circle at 30% 30%, rgba(77,208,255,.25), rgba(255,77,210,.15))}
+    @keyframes drift{0%{transform:translate(-5vmin,0)}50%{transform:translate(6vmin,2vmin)}100%{transform:translate(-5vmin,0)}}
 
-        header{position:sticky; top:0; background:linear-gradient(180deg, rgba(8,5,26,.7), rgba(8,5,26,.25)); backdrop-filter:blur(8px) saturate(140%); border-bottom:1px solid var(--border); z-index:5}
-        .topbar{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 0}
-        .brand{display:flex; align-items:center; gap:10px}
-        .brand img{width:32px; height:32px; border-radius:8px}
-        .brand b{letter-spacing:.2px}
-        .event-pill{display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; background:var(--glass); border:1px solid var(--border); box-shadow:var(--shadow); font-weight:700}
-        .lang-toggle button{border:none; background:transparent; color:var(--muted); font-weight:800; padding:6px 10px; border-radius:999px; cursor:pointer}
-        .lang-toggle button.active{color:var(--txt); background:rgba(255,255,255,.08); border:1px solid var(--border)}
+    header{position:sticky; top:0; background:linear-gradient(180deg, rgba(8,5,26,.7), rgba(8,5,26,.25)); backdrop-filter:blur(8px) saturate(140%); border-bottom:1px solid var(--border); z-index:5}
+    .topbar{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 0}
+    .brand{display:flex; align-items:center; gap:10px}
+    .brand img{width:32px; height:32px; border-radius:8px}
+    .brand b{letter-spacing:.2px}
+    .event-pill{display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; background:var(--glass); border:1px solid var(--border); box-shadow:var(--shadow); font-weight:700}
+    .lang-toggle button{border:none; background:transparent; color:var(--muted); font-weight:800; padding:6px 10px; border-radius:999px; cursor:pointer}
+    .lang-toggle button.active{color:var(--txt); background:rgba(255,255,255,.08); border:1px solid var(--border)}
 
-        .now{margin:14px 0 6px}
-        .card{background:var(--glass); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
-        .now .inner{display:flex; gap:14px; padding:14px}
-        .cover{width:62px; height:62px; border-radius:14px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); background-size:cover; background-position:center}
-        .meta{display:flex; flex-direction:column; gap:6px; min-width:0}
-        .title{font-weight:900; font-size:18px}
-        .sub{color:var(--muted)}
-        .live{margin-left:auto; align-self:flex-start; padding:8px 10px; border-radius:999px; background:rgba(255,255,255,.08); border:1px solid var(--border); font-weight:800}
-        .bars{height:8px; background:rgba(255,255,255,.09); border-radius:999px; overflow:hidden; position:relative}
-        .bars>span{position:absolute; inset:0 auto 0 0; width:65%; background:linear-gradient(90deg,var(--accent1),var(--accent2)); animation:pulse 2.4s ease-in-out infinite}
-        @keyframes pulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
+    .now{margin:14px 0 6px}
+    .card{background:var(--glass); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
+    .now .inner{display:flex; gap:14px; padding:14px}
+    .cover{width:62px; height:62px; border-radius:14px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); background-size:cover; background-position:center}
+    .meta{display:flex; flex-direction:column; gap:6px; min-width:0}
+    .title{font-weight:900; font-size:18px}
+    .sub{color:var(--muted)}
+    .live{margin-left:auto; align-self:flex-start; padding:8px 10px; border-radius:999px; background:rgba(255,255,255,.08); border:1px solid var(--border); font-weight:800}
+    .bars{height:8px; background:rgba(255,255,255,.09); border-radius:999px; overflow:hidden; position:relative}
+    .bars>span{position:absolute; inset:0 auto 0 0; width:65%; background:linear-gradient(90deg,var(--accent1),var(--accent2)); animation:pulse 2.4s ease-in-out infinite}
+    @keyframes pulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
 
-        .views{flex:1 1 auto; padding:8px 0 92px}
-        .bottom{position:fixed; inset:auto 0 0 0; background:linear-gradient(180deg, rgba(8,5,26,.4), rgba(8,5,26,.75)); backdrop-filter:blur(10px) saturate(150%); border-top:1px solid var(--border); z-index:6}
-        .bottom .container{display:flex; gap:8px; padding:8px 12px}
-        .btab{flex:1 1 0; border:none; border-radius:12px; color:var(--txt); background:rgba(255,255,255,.06); border:1px solid var(--border); padding:10px 12px; font-weight:900; letter-spacing:.2px; cursor:pointer}
-        .btab.active{background:linear-gradient(135deg, rgba(77,208,255,.18), rgba(255,77,210,.18)); border-color:rgba(255,255,255,.28)}
-        .screen{display:none}
-        .screen.active{display:block; animation:reveal .28s ease}
-        @keyframes reveal{from{opacity:0; transform:translateY(8px)}to{opacity:1; transform:translateY(0)}}
+    .views{flex:1 1 auto; padding:8px 0 92px}
+    .bottom{position:fixed; inset:auto 0 0 0; background:linear-gradient(180deg, rgba(8,5,26,.4), rgba(8,5,26,.75)); backdrop-filter:blur(10px) saturate(150%); border-top:1px solid var(--border); z-index:6}
+    .bottom .container{display:flex; gap:8px; padding:8px 12px}
+    .btab{flex:1 1 0; border:none; border-radius:12px; color:var(--txt); background:rgba(255,255,255,.06); border:1px solid var(--border); padding:10px 12px; font-weight:900; letter-spacing:.2px; cursor:pointer}
+    .btab.active{background:linear-gradient(135deg, rgba(77,208,255,.18), rgba(255,77,210,.18)); border-color:rgba(255,255,255,.28)}
+    .screen{display:none}
+    .screen.active{display:block; animation:reveal .28s ease}
+    @keyframes reveal{from{opacity:0; transform:translateY(8px)}to{opacity:1; transform:translateY(0)}}
 
-        .list{display:flex; flex-direction:column; gap:10px; padding:12px}
-        .row{display:flex; gap:12px; align-items:center; padding:12px; border-radius:14px; background:rgba(255,255,255,.06); border:1px solid var(--border)}
-        .row .art{width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); background-size:cover; background-position:center}
-        .row .body{flex:1 1 auto; min-width:0}
-        .row .name{font-weight:800}
-        .row .note{color:var(--muted); font-size:12px}
-        .row .bar{--p:0%; --t:0%; position:relative; height:8px; border-radius:999px; background:rgba(255,255,255,.09); overflow:hidden; margin-top:6px}
-        .row .bar span.v{position:absolute; inset:0 auto 0 0; width:var(--p); background:linear-gradient(90deg,var(--accent1), #a1e1ff); transition:width .35s cubic-bezier(.2,.7,.2,1)}
-        .row .bar span.t{position:absolute; inset:0 auto 0 0; width:var(--t); background:linear-gradient(90deg,var(--accent2), #ff9de6); opacity:.9; transition:width .35s cubic-bezier(.2,.7,.2,1)}
-        .vote{border:none; padding:10px 12px; border-radius:12px; font-weight:900; background:linear-gradient(135deg, rgba(77,208,255,.18), rgba(255,77,210,.18)); border:1px solid rgba(255,255,255,.22); cursor:pointer}
-        .vote.voted{position:relative; color:#0b0720; background:linear-gradient(135deg, rgba(119,242,161,.9), rgba(77,208,255,.65)); border-color:rgba(255,255,255,.4)}
-        .vote.voted:after{content:"✓"; font-weight:900; margin-left:6px}
-        .vote[disabled]{opacity:.55; cursor:not-allowed}
+    .list{display:flex; flex-direction:column; gap:10px; padding:12px}
+    .row{display:flex; gap:12px; align-items:center; padding:12px; border-radius:14px; background:rgba(255,255,255,.06); border:1px solid var(--border)}
+    .row .art{width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); background-size:cover; background-position:center}
+    .row .body{flex:1 1 auto; min-width:0}
+    .row .name{font-weight:800}
+    .row .note{color:var(--muted); font-size:12px}
+    .row .bar{--p:0%; --t:0%; position:relative; height:8px; border-radius:999px; background:rgba(255,255,255,.09); overflow:hidden; margin-top:6px}
+    .row .bar span.v{position:absolute; inset:0 auto 0 0; width:var(--p); background:linear-gradient(90deg,var(--accent1), #a1e1ff); transition:width .35s cubic-bezier(.2,.7,.2,1)}
+    .row .bar span.t{position:absolute; inset:0 auto 0 0; width:var(--t); background:linear-gradient(90deg,var(--accent2), #ff9de6); opacity:.9; transition:width .35s cubic-bezier(.2,.7,.2,1)}
+    .vote{border:none; padding:10px 12px; border-radius:12px; font-weight:900; background:linear-gradient(135deg, rgba(77,208,255,.18), rgba(255,77,210,.18)); border:1px solid rgba(255,255,255,.22); cursor:pointer}
+    .vote.voted{position:relative; color:#0b0720; background:linear-gradient(135deg, rgba(119,242,161,.9), rgba(77,208,255,.65)); border-color:rgba(255,255,255,.4)}
+    .vote.voted:after{content:"✓"; font-weight:900; margin-left:6px}
+    .vote[disabled]{opacity:.55; cursor:not-allowed}
 
-        .search{padding:12px}
-        .field{display:flex; gap:8px}
-        .input{flex:1 1 auto; background:rgba(255,255,255,.06); border:1px solid var(--border); border-radius:12px; padding:12px 14px; color:var(--txt); outline:none}
-        .btn{border:none; padding:12px 14px; border-radius:12px; font-weight:900; cursor:pointer; background:linear-gradient(135deg, rgba(77,208,255,.18), rgba(255,77,210,.18)); border:1px solid rgba(255,255,255,.22)}
-        .hint{color:var(--muted); font-size:12px; margin:8px 2px}
+    .search{padding:12px}
+    .field{display:flex; gap:8px}
+    .input{flex:1 1 auto; background:rgba(255,255,255,.06); border:1px solid var(--border); border-radius:12px; padding:12px 14px; color:var(--txt); outline:none}
+    .btn{border:none; padding:12px 14px; border-radius:12px; font-weight:900; cursor:pointer; background:linear-gradient(135deg, rgba(77,208,255,.18), rgba(255,77,210,.18)); border:1px solid rgba(255,255,255,.22)}
+    .hint{color:var(--muted); font-size:12px; margin:8px 2px}
 
-        .mine{padding:12px}
-        .empty{padding:18px; text-align:center; color:var(--muted)}
+    .mine{padding:12px}
+    .empty{padding:18px; text-align:center; color:var(--muted)}
 
-        .profile{padding:12px; display:grid; gap:12px}
-        .rower{display:flex; align-items:center; gap:12px}
-        .avatar{width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg, var(--accent1), var(--accent2)); background-size:cover; background-position:center}
-        .kv{display:grid; gap:2px}
-        .kv .k{color:var(--muted); font-size:12px}
-        .switch{display:flex; gap:8px; align-items:center}
-        .switch .tog{appearance:none; width:44px; height:28px; border-radius:999px; background:rgba(255,255,255,.12); position:relative; border:1px solid var(--border); cursor:pointer; outline:none}
-        .switch .tog:checked{background:linear-gradient(90deg,var(--accent1),var(--accent2))}
-        .switch .tog:before{content:""; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; transition:left .2s}
-        .switch .tog:checked:before{left:19px}
+    .profile{padding:12px; display:grid; gap:12px}
+    .rower{display:flex; align-items:center; gap:12px}
+    .avatar{width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg, var(--accent1), var(--accent2)); background-size:cover; background-position:center}
+    .kv{display:grid; gap:2px}
+    .kv .k{color:var(--muted); font-size:12px}
+    .switch{display:flex; gap:8px; align-items:center}
+    .switch .tog{appearance:none; width:44px; height:28px; border-radius:999px; background:rgba(255,255,255,.12); position:relative; border:1px solid var(--border); cursor:pointer; outline:none}
+    .switch .tog:checked{background:linear-gradient(90deg,var(--accent1),var(--accent2))}
+    .switch .tog:before{content:""; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; transition:left .2s}
+    .switch .tog:checked:before{left:19px}
 
-        .confetti{position:absolute; pointer-events:none; inset:0}
-        .confetti i{position:absolute; width:6px; height:10px; border-radius:2px; opacity:.9; background:linear-gradient(180deg,var(--accent1),var(--accent2)); animation:drop 700ms ease-out forwards}
-        @keyframes drop{to{transform:translateY(26px) rotate(160deg); opacity:0}}
+    .confetti{position:absolute; pointer-events:none; inset:0}
+    .confetti i{position:absolute; width:6px; height:10px; border-radius:2px; opacity:.9; background:linear-gradient(180deg,var(--accent1),var(--accent2)); animation:drop 700ms ease-out forwards}
+    @keyframes drop{to{transform:translateY(26px) rotate(160deg); opacity:0}}
 
-        .hidden{display:none!important}
-        .muted{color:var(--muted)}
+    .hidden{display:none!important}
+    .muted{color:var(--muted)}
 
-        .ac{position:relative}
-        .ac-list{
-            position:absolute;
-            top:100%;
-            left:0;
-            right:0;
-            margin-top:8px;
-            background:rgba(255,255,255,.08);
-            border:1px solid var(--border);
-            border-radius:12px;
-            backdrop-filter:blur(8px);
-            box-shadow:var(--shadow);
-            z-index:1000;
-            max-height:40vh;
-            overflow:auto;
-            overscroll-behavior:contain;
-            -webkit-overflow-scrolling:touch;
-        }
-        .ac-item{display:flex; gap:10px; padding:10px; align-items:center; cursor:pointer}
-        .ac-item:hover{background:rgba(255,255,255,.10)}
-        .ac-cover{width:40px; height:40px; border-radius:8px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); background-size:cover; background-position:center}
-        .ac-title{font-weight:800}
-        .ac-sub{font-size:12px; color:var(--muted)}
-    </style>
+    .ac{position:relative}
+    .ac-list{
+      position:absolute;
+      top:100%;
+      left:0;
+      right:0;
+      margin-top:8px;
+      background:rgba(255,255,255,.08);
+      border:1px solid var(--border);
+      border-radius:12px;
+      backdrop-filter:blur(8px);
+      box-shadow:var(--shadow);
+      z-index:1000;
+      max-height:40vh;
+      overflow:auto;
+      overscroll-behavior:contain;
+      -webkit-overflow-scrolling:touch;
+    }
+    .ac-item{display:flex; gap:10px; padding:10px; align-items:center; cursor:pointer}
+    .ac-item:hover{background:rgba(255,255,255,.10)}
+    .ac-cover{width:40px; height:40px; border-radius:8px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); background-size:cover; background-position:center}
+    .ac-title{font-weight:800}
+    .ac-sub{font-size:12px; color:var(--muted)}
+  </style>
 </head>
 
 <body>
@@ -138,464 +138,484 @@
 <div class="blob b1"></div><div class="blob b2"></div>
 
 <div class="app">
-    <header>
-        <div class="container topbar">
-            <div class="brand">
-                <img src="/static/logo.jpg" alt="Next Track" />
-                <div>
-                    <b>Next Track</b>
-                    <div class="sub muted i18n" data-key="subtitle_en">Vote & suggest in real time</div>
-                    <div class="sub muted i18n hidden" data-key="subtitle_ru">Голосуй и предлагай в реальном времени</div>
-                </div>
+  <header>
+    <div class="container topbar">
+      <div class="brand">
+        <img src="/static/logo.jpg" alt="Next Track" />
+        <div>
+          <b>Next Track</b>
+          <div class="sub muted i18n" data-key="subtitle_en">Vote & suggest in real time</div>
+          <div class="sub muted i18n hidden" data-key="subtitle_ru">Голосуй и предлагай в реальном времени</div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:8px; align-items:center">
+        <span class="event-pill">🎧 <span id="djName">—</span> • <span id="eventName">—</span></span>
+        <div class="lang-toggle">
+          <button data-lang="en" class="active">EN</button>
+          <button data-lang="ru">RU</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="views">
+    <div class="container">
+      <section class="now card">
+        <div class="inner">
+          <div class="cover" id="nowCover" aria-hidden="true"></div>
+          <div class="meta" style="flex:1 1 auto">
+            <div class="title" id="nowTitle">—</div>
+            <div class="sub muted i18n" data-key="now_en">Now playing</div>
+            <div class="sub muted i18n hidden" data-key="now_ru">Сейчас играет</div>
+            <div class="bars"><span></span></div>
+            <div class="sub muted" id="nowTimer">—</div>
+          </div>
+          <div class="live" id="liveBadge">LIVE</div>
+        </div>
+      </section>
+
+      <section id="queue" class="screen active card">
+        <div class="list" id="queueList"></div>
+      </section>
+
+      <section id="search" class="screen card">
+        <div class="search">
+          <div class="field ac">
+            <input id="q" class="input" type="text" placeholder="Track — Artist" autocomplete="off"/>
+            <button id="add" class="btn">＋</button>
+            <div id="acList" class="ac-list hidden"></div>
+          </div>
+          <div class="hint i18n" data-key="hint_en">Tip: start typing to search the global catalog.</div>
+          <div class="hint i18n hidden" data-key="hint_ru">Подсказка: начни вводить — поиск по глобальному каталогу.</div>
+        </div>
+      </section>
+
+      <section id="mine" class="screen card">
+        <div class="mine" id="myVotes"></div>
+      </section>
+
+      <section id="profile" class="screen card">
+        <div class="profile">
+          <div class="rower">
+            <div class="avatar" id="avatar"></div>
+            <div class="kv">
+              <div class="k i18n" data-key="you_en">You</div>
+              <div class="k i18n hidden" data-key="you_ru">Вы</div>
+              <div><b id="userName">@guest</b></div>
+              <div class="muted" id="userId"></div>
             </div>
+          </div>
 
-            <div style="display:flex; gap:8px; align-items:center">
-                <span class="event-pill">🎧 <span id="djName">—</span> • <span id="eventName">—</span></span>
-                <div class="lang-toggle">
-                    <button data-lang="en" class="active">EN</button>
-                    <button data-lang="ru">RU</button>
-                </div>
+          <div class="rower" style="justify-content:space-between">
+            <div class="kv">
+              <div class="k i18n" data-key="notif_en">Notifications</div>
+              <div class="k i18n hidden" data-key="notif_ru">Уведомления</div>
+              <div class="muted i18n" data-key="notif2_en">Top track changes, your suggestion up</div>
+              <div class="muted i18n hidden" data-key="notif2_ru">Смена лидера, апвоуты вашей заявки</div>
             </div>
+            <label class="switch"><input id="notifs" type="checkbox" class="tog"><span></span></label>
+          </div>
+
+          <a class="btn" id="openTG" href="https://t.me/next_track_bot?start=webapp" target="_blank" rel="noopener">Open in Telegram</a>
         </div>
-    </header>
+      </section>
+    </div>
+  </main>
 
-    <main class="views">
-        <div class="container">
-            <section class="now card">
-                <div class="inner">
-                    <div class="cover" id="nowCover" aria-hidden="true"></div>
-                    <div class="meta" style="flex:1 1 auto">
-                        <div class="title" id="nowTitle">—</div>
-                        <div class="sub muted i18n" data-key="now_en">Now playing</div>
-                        <div class="sub muted i18n hidden" data-key="now_ru">Сейчас играет</div>
-                        <div class="bars"><span></span></div>
-                        <div class="sub muted" id="nowTimer">—</div>
-                    </div>
-                    <div class="live" id="liveBadge">LIVE</div>
-                </div>
-            </section>
-
-            <section id="queue" class="screen active card">
-                <div class="list" id="queueList"></div>
-            </section>
-
-            <section id="search" class="screen card">
-                <div class="search">
-                    <div class="field ac">
-                        <input id="q" class="input" type="text" placeholder="Track — Artist" autocomplete="off"/>
-                        <button id="add" class="btn">＋</button>
-                        <div id="acList" class="ac-list hidden"></div>
-                    </div>
-                    <div class="hint i18n" data-key="hint_en">Tip: start typing to search the global catalog.</div>
-                    <div class="hint i18n hidden" data-key="hint_ru">Подсказка: начни вводить — поиск по глобальному каталогу.</div>
-                </div>
-            </section>
-
-            <section id="mine" class="screen card">
-                <div class="mine" id="myVotes"></div>
-            </section>
-
-            <section id="profile" class="screen card">
-                <div class="profile">
-                    <div class="rower">
-                        <div class="avatar" id="avatar"></div>
-                        <div class="kv">
-                            <div class="k i18n" data-key="you_en">You</div>
-                            <div class="k i18n hidden" data-key="you_ru">Вы</div>
-                            <div><b id="userName">@guest</b></div>
-                            <div class="muted" id="userId"></div>
-                        </div>
-                    </div>
-
-                    <div class="rower" style="justify-content:space-between">
-                        <div class="kv">
-                            <div class="k i18n" data-key="notif_en">Notifications</div>
-                            <div class="k i18n hidden" data-key="notif_ru">Уведомления</div>
-                            <div class="muted i18n" data-key="notif2_en">Top track changes, your suggestion up</div>
-                            <div class="muted i18n hidden" data-key="notif2_ru">Смена лидера, апвоуты вашей заявки</div>
-                        </div>
-                        <label class="switch"><input id="notifs" type="checkbox" class="tog"><span></span></label>
-                    </div>
-
-                    <a class="btn" id="openTG" href="https://t.me/next_track_bot?start=webapp" target="_blank" rel="noopener">Open in Telegram</a>
-                </div>
-            </section>
-        </div>
-    </main>
-
-    <nav class="bottom">
-        <div class="container">
-            <button class="btab active" data-target="queue">⬆ Up Next</button>
-            <button class="btab" data-target="search">🔎 Suggest</button>
-            <button class="btab" data-target="mine">❤️ My votes</button>
-            <button class="btab" data-target="profile">👤 Profile</button>
-        </div>
-    </nav>
+  <nav class="bottom">
+    <div class="container">
+      <button class="btab active" data-target="queue">⬆ Up Next</button>
+      <button class="btab" data-target="search">🔎 Suggest</button>
+      <button class="btab" data-target="mine">❤️ My votes</button>
+      <button class="btab" data-target="profile">👤 Profile</button>
+    </div>
+  </nav>
 </div>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
-    // ================== CONFIG ==================
-    // If empty => use current origin
-    const API_BASE = `https://next-track.fun/api/v1`
+  // ================== CONFIG ==================
+  // REST API base:
+  const API_BASE = 'https://next-track.fun/api/v1';
 
-    const EP = {
-        authWebApp: (initData) => `${API_BASE}/auth/telegram/webapp?init_data=${encodeURIComponent(initData)}`,
-        event:      (slug) => `${API_BASE}events/${slug}`,
-        queue:      (id) => `${API_BASE}/events/${id}/queue`,
-        vote:       (id) => `${API_BASE}/events/${id}/vote`,
-        suggest:    (id) => `${API_BASE}/events/${id}/suggest`,
-        search:     (q,limit=15) => `${API_BASE}/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+  // WS base (no /api/v1):
+  const WS_BASE  = 'wss://next-track.fun';
+
+  const EP = {
+    authWebApp: (initData) => `${API_BASE}/auth/telegram/webapp?init_data=${encodeURIComponent(initData)}`,
+
+    // ✅ slug-based
+    event:   (slug) => `${API_BASE}/events/${encodeURIComponent(slug)}`,
+    queue:   (slug) => `${API_BASE}/events/${encodeURIComponent(slug)}/queue`,
+    vote:    (slug) => `${API_BASE}/events/${encodeURIComponent(slug)}/vote`,
+    suggest: (slug) => `${API_BASE}/events/${encodeURIComponent(slug)}/suggest`,
+    search:  (q,limit=15) => `${API_BASE}/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+  };
+
+  // ================== HELPERS ==================
+  const $ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
+  const byId = id => document.getElementById(id);
+
+  // ✅ event slug from query: ?event=event_kaif (or any slug)
+  const qs = new URLSearchParams(location.search);
+  const EVENT_SLUG = qs.get('event');
+
+  if (!EVENT_SLUG) {
+    location.replace('/404');
+    throw new Error('Missing ?event=');
+  }
+
+  const state = {
+    token: null,
+    user: { tg_id:null, tg_username:null, img:null },
+    event: null,
+    queue: [],
+    myVotes: new Set(),
+    lang: localStorage.getItem('nt_user_lang') || 'en',
+    votingOpen: false,
+    voteClosesAt: 0,
+    trackEndsAt: 0,
+  };
+
+  function setAuth(token){ state.token = token; }
+  function authHeaders(){
+    return state.token ? { 'Authorization': `Bearer ${state.token}` } : {};
+  }
+
+  async function getJSON(url, opts={}){
+    const res = await fetch(url, {
+      ...opts,
+      headers:{ 'Accept':'application/json', ...(opts.headers||{}), ...authHeaders() }
+    });
+    if(!res.ok) throw new Error(String(res.status));
+    return await res.json();
+  }
+
+  async function postJSON(url, body){
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', ...authHeaders() },
+      body: JSON.stringify(body||{})
+    });
+    if(!res.ok) throw new Error(String(res.status));
+    return await res.json();
+  }
+
+  function msToClock(s){
+    s = Math.max(0, Math.floor(s));
+    const m = Math.floor(s/60);
+    const r = s%60;
+    return `${m}:${String(r).padStart(2,'0')}`;
+  }
+
+  // ================== LANGUAGE ==================
+  const langButtons = $('.lang-toggle button');
+  function setLang(code){
+    langButtons.forEach(b=>b.classList.toggle('active', b.dataset.lang===code));
+    document.documentElement.lang = code==='ru'?'ru':'en';
+    const show = code==='ru' ? '_ru' : '_en';
+    const hide = code==='ru' ? '_en' : '_ru';
+    $('.i18n').forEach(el=>{
+      const k = el.dataset.key||'';
+      if(k.endsWith(show)) el.classList.remove('hidden');
+      else if(k.endsWith(hide)) el.classList.add('hidden');
+    });
+    localStorage.setItem('nt_user_lang', code);
+    state.lang = code;
+  }
+  langButtons.forEach(b=>b.addEventListener('click', ()=>setLang(b.dataset.lang)));
+  setLang(state.lang);
+
+  // ================== UI RENDER ==================
+  function renderUser(){
+    const name = state.user?.tg_username ? '@'+state.user.tg_username : '@guest';
+    byId('userName').textContent = name;
+    byId('userId').textContent = state.user?.tg_id ? `id: ${state.user.tg_id}` : '';
+    const img = state.user?.img;
+    if(img) byId('avatar').style.backgroundImage = `url("${img}")`;
+  }
+
+  function renderEventHeader(){
+    // supports both {title} and {name}
+    const title = state.event?.title || state.event?.name || '—';
+    byId('eventName').textContent = title;
+
+    const dj = state.event?.dj_name || state.event?.dj?.name || state.event?.club_name || '—';
+    byId('djName').textContent = dj;
+  }
+
+  function setNowPlaying(track){
+    const title = track ? `${track.title || '—'}${track.artist ? ' — ' + track.artist : ''}` : '—';
+    byId('nowTitle').textContent = title;
+
+    const cover = track?.cover_url || '';
+    if(cover){
+      byId('nowCover').style.backgroundImage = `url("${cover.replaceAll('"','%22')}")`;
+    }else{
+      byId('nowCover').style.backgroundImage = '';
+    }
+  }
+
+  function confettiAt(el){
+    const box = el.closest('.row');
+    if(!box) return;
+    let w = box.querySelector('.confetti');
+    if(!w){ w = document.createElement('div'); w.className='confetti'; box.appendChild(w); }
+    for(let i=0;i<10;i++){
+      const p = document.createElement('i');
+      p.style.left = (10+Math.random()*80)+'%';
+      p.style.top = (0+Math.random()*6)+'%';
+      w.appendChild(p);
+      setTimeout(()=>p.remove(), 750);
+    }
+  }
+
+  function renderQueue(){
+    const qWrap = byId('queueList');
+    qWrap.innerHTML = '';
+
+    const tracks = [...state.queue];
+    if(!tracks.length){
+      qWrap.innerHTML = `<div class="empty">Queue is empty</div>`;
+      return;
+    }
+
+    for(const t of tracks){
+      const row = document.createElement('div');
+      row.className = 'row';
+
+      const id = t.track_id || t.id;
+      const voted = state.myVotes.has(id);
+
+      const title = (t.title || t.name || 'Untitled');
+      const artist = (t.artist || '');
+      const cover = (t.cover_url || '');
+
+      const votes = Number(t.votes || 0);
+      const percent = Math.max(0, Math.min(100, votes));
+
+      row.innerHTML = `
+        <div class="art" style="${cover ? `background-image:url('${cover.replaceAll("'","%27")}')` : ''}" aria-hidden="true"></div>
+        <div class="body">
+          <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
+          <div class="note muted">${t.note || ''}</div>
+          <div class="bar" style="--p:${percent}%; --t:0%">
+            <span class="v"></span><span class="t"></span>
+          </div>
+        </div>
+        <button class="vote ${voted?'voted':''}" data-id="${id}" ${(!state.votingOpen || voted) ? 'disabled' : ''}>${voted?'Voted':'Vote'}</button>
+      `;
+      qWrap.appendChild(row);
+    }
+
+    qWrap.onclick = async (e)=>{
+      const btn = e.target.closest('.vote'); if(!btn) return;
+      const id = btn.dataset.id;
+      if(!state.votingOpen || state.myVotes.has(id)) return;
+
+      try{
+        await postJSON(EP.vote(EVENT_SLUG), { track_id:id });
+        state.myVotes.add(id);
+        btn.classList.add('voted'); btn.textContent='Voted'; btn.disabled = true;
+        confettiAt(btn);
+      }catch(err){
+        console.error(err);
+        alert('Vote failed');
+      }
+    };
+  }
+
+  function renderMine(){
+    const box = byId('myVotes');
+    const ids = Array.from(state.myVotes);
+    if(!ids.length){
+      box.innerHTML = `<div class="empty i18n" data-key="empty_en">You have not voted yet.</div>
+                       <div class="empty i18n hidden" data-key="empty_ru">Вы ещё не голосовали.</div>`;
+      setLang(state.lang);
+      return;
+    }
+
+    const picked = state.queue.filter(t=>{
+      const id = t.track_id || t.id;
+      return ids.includes(id);
+    });
+
+    const rows = picked.map(t=>{
+      const cover = t.cover_url || '';
+      const title = (t.title || t.name || 'Untitled');
+      const artist = (t.artist || '');
+      return `
+        <div class="row">
+          <div class="art" style="${cover ? `background-image:url('${cover.replaceAll("'","%27")}')` : ''}"></div>
+          <div class="body">
+            <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
+            <div class="note muted">${t.note||''}</div>
+            <div class="bar" style="--p:0%; --t:0%"><span class="v"></span><span class="t"></span></div>
+          </div>
+          <div class="vote voted">Voted</div>
+        </div>`;
+    }).join('');
+
+    box.innerHTML = `<div class="list">${rows}</div>`;
+  }
+
+  function updateNowTimer(){
+    const now = Math.floor(Date.now()/1000);
+    let text = '—';
+
+    if(state.votingOpen && state.voteClosesAt){
+      text = `Voting closes in: ${msToClock(state.voteClosesAt - now)}`;
+    }else if(state.trackEndsAt){
+      text = `Ends in: ${msToClock(state.trackEndsAt - now)}`;
+    }
+
+    byId('nowTimer').textContent = text;
+  }
+
+  // ================== DATA ==================
+  async function refreshEvent(){
+    try{
+      const data = await getJSON(EP.event(EVENT_SLUG));
+      state.event = data;
+      renderEventHeader();
+
+      const st = data?.state || {};
+      state.votingOpen = (st.voting_open === "1" || st.voting_open === 1 || st.voting_open === true);
+      state.voteClosesAt = Number(st.vote_closes_at || 0);
+      state.trackEndsAt = Number(st.track_ends_at || 0);
+
+      updateNowTimer();
+    }catch(e){
+      location.replace('/404');
+      throw e;
+    }
+  }
+
+  async function refreshQueue(){
+    try{
+      const data = await getJSON(EP.queue(EVENT_SLUG));
+      state.queue = (data && data.items) ? data.items : [];
+      renderQueue();
+      renderMine();
+    }catch(e){
+      if(String(e.message) === '404') location.replace('/404');
+    }
+  }
+
+  // ================== SUGGEST ==================
+  byId('add').addEventListener('click', async ()=>{
+    const raw = byId('q').value.trim();
+    if(!raw) return;
+
+    const parts = raw.split(/ — | - | – /);
+    const title = (parts[0]||'').trim();
+    const artist = (parts[1]||'').trim() || null;
+
+    try{
+      await postJSON(EP.suggest(EVENT_SLUG), { title, artist });
+      byId('q').value='';
+      hideAC();
+      await refreshQueue();
+      selectTab('queue');
+    }catch(err){
+      console.error(err);
+      alert('Suggest failed');
+    }
+  });
+
+  // ================== PROFILE / NOTIFS ==================
+  const tog = byId('notifs');
+  tog.addEventListener('change', ()=>{ localStorage.setItem('nt_user_notifs', tog.checked?'1':'0'); });
+  tog.checked = localStorage.getItem('nt_user_notifs')==='1';
+
+  // ================== BOTTOM NAV ==================
+  function selectTab(id){
+    $('.btab').forEach(b=>b.classList.toggle('active', b.dataset.target===id));
+    $('.screen').forEach(s=>s.classList.toggle('active', s.id===id));
+  }
+  $('.btab').forEach(b=>b.addEventListener('click', ()=>selectTab(b.dataset.target)));
+
+  // ================== TELEGRAM AUTH ==================
+  async function authViaTelegram(){
+    const tg = window.Telegram?.WebApp;
+    if(!tg || !tg.initDataUnsafe?.user) return null;
+
+    try{
+      const res = await fetch(EP.authWebApp(tg.initData));
+      if(!res.ok) throw new Error('auth failed');
+      const payload = await res.json();
+      if(payload?.access_token) setAuth(payload.access_token);
+      if(payload?.user) state.user = payload.user;
+      renderUser();
+      return payload;
+    }catch(e){
+      const u = tg.initDataUnsafe.user;
+      state.user = { tg_id: u?.id, tg_username: u?.username, img: u?.photo_url };
+      renderUser();
+      return null;
+    }
+  }
+
+  // ================== WEBSOCKET ==================
+  function connectWS(){
+    const wsUrl = `${WS_BASE}/ws/events/${encodeURIComponent(EVENT_SLUG)}`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (ev)=>{
+      try{
+        const msg = JSON.parse(ev.data);
+
+        if(msg.type === 'voting_open'){
+          state.votingOpen = true;
+          state.voteClosesAt = Number(msg.vote_closes_at || 0);
+          refreshQueue().catch(()=>{});
+        }
+
+        if(msg.type === 'voting_closed'){
+          state.votingOpen = false;
+        }
+
+        if(msg.type === 'track_started'){
+          const track = msg.track || null;
+          setNowPlaying(track);
+          state.trackEndsAt = Number(msg.ends_at || 0);
+          state.votingOpen = false;
+          refreshQueue().catch(()=>{});
+        }
+
+        if(msg.type === 'vote' || msg.type === 'queue_added' || msg.type === 'track_finished'){
+          refreshQueue().catch(()=>{});
+        }
+
+        updateNowTimer();
+      }catch(e){}
     };
 
-    // ================== HELPERS ==================
-    const $ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
-    const byId = id => document.getElementById(id);
+    ws.onclose = ()=> setTimeout(connectWS, 1500);
+  }
 
-    const qs = new URLSearchParams(location.search);
-    const EVENT_SLUG = qs.get('event');
+  // ================== AUTOCOMPLETE placeholder ==================
+  const acBox = byId('acList');
+  function hideAC(){ acBox.classList.add('hidden'); acBox.innerHTML=''; }
 
-    // ✅ no event => 404
-    if (!EVENT_SLUG) {
-        location.replace('/404');
-        throw new Error('Missing ?event=');
-}
-
-    const state = {
-        token: null,
-        user: { tg_id:null, tg_username:null, img:null },
-        event: null,
-        queue: [],
-        myVotes: new Set(),
-        lang: localStorage.getItem('nt_user_lang') || 'en',
-        votingOpen: false,
-        voteClosesAt: 0,
-        trackEndsAt: 0,
-    };
-
-    function setAuth(token){ state.token = token; }
-    function authHeaders(){
-        return state.token ? { 'Authorization': `Bearer ${state.token}` } : {};
+  // ================== INIT ==================
+  async function init(){
+    const isInTG = !!window.Telegram?.WebApp?.initData;
+    if(isInTG){
+      byId('openTG').classList.add('hidden');
+      try { window.Telegram.WebApp.expand(); } catch{}
     }
 
-    async function getJSON(url, opts={}){
-        const res = await fetch(url, {
-            ...opts,
-            headers:{ 'Accept':'application/json', ...(opts.headers||{}), ...authHeaders() }
-        });
-        if(!res.ok) throw new Error(String(res.status));
-        return await res.json();
-    }
+    await authViaTelegram();
+    await refreshEvent();
+    await refreshQueue();
+    connectWS();
 
-    async function postJSON(url, body){
-        const res = await fetch(url, {
-            method:'POST',
-            headers:{ 'Content-Type':'application/json', ...authHeaders() },
-            body: JSON.stringify(body||{})
-        });
-        if(!res.ok) throw new Error(String(res.status));
-        return await res.json();
-    }
+    setInterval(updateNowTimer, 500);
+  }
 
-    function msToClock(s){
-        s = Math.max(0, Math.floor(s));
-        const m = Math.floor(s/60);
-        const r = s%60;
-        return `${m}:${String(r).padStart(2,'0')}`;
-    }
-
-    // ================== LANGUAGE ==================
-    const langButtons = $('.lang-toggle button');
-    function setLang(code){
-        langButtons.forEach(b=>b.classList.toggle('active', b.dataset.lang===code));
-        document.documentElement.lang = code==='ru'?'ru':'en';
-        const show = code==='ru' ? '_ru' : '_en';
-        const hide = code==='ru' ? '_en' : '_ru';
-        $('.i18n').forEach(el=>{
-            const k = el.dataset.key||'';
-            if(k.endsWith(show)) el.classList.remove('hidden');
-            else if(k.endsWith(hide)) el.classList.add('hidden');
-        });
-        localStorage.setItem('nt_user_lang', code);
-        state.lang = code;
-    }
-    langButtons.forEach(b=>b.addEventListener('click', ()=>setLang(b.dataset.lang)));
-    setLang(state.lang);
-
-    // ================== UI RENDER ==================
-    function renderUser(){
-        const name = state.user?.tg_username ? '@'+state.user.tg_username : '@guest';
-        byId('userName').textContent = name;
-        byId('userId').textContent = state.user?.tg_id ? `id: ${state.user.tg_id}` : '';
-        const img = state.user?.img;
-        if(img) byId('avatar').style.backgroundImage = `url("${img}")`;
-    }
-
-    function renderEventHeader(){
-        const title = state.event?.title || '—';
-        byId('eventName').textContent = title;
-
-        // If backend later returns DJ info, use it:
-        const dj = state.event?.dj_name || state.event?.dj?.name || '—';
-        byId('djName').textContent = dj;
-    }
-
-    function setNowPlaying(track){
-        const title = track ? `${track.title || '—'}${track.artist ? ' — ' + track.artist : ''}` : '—';
-        byId('nowTitle').textContent = title;
-
-        const cover = track?.cover_url || '';
-        if(cover){
-            byId('nowCover').style.backgroundImage = `url("${cover.replaceAll('"','%22')}")`;
-        }else{
-            byId('nowCover').style.backgroundImage = '';
-        }
-    }
-
-    function confettiAt(el){
-        const box = el.closest('.row');
-        if(!box) return;
-        let w = box.querySelector('.confetti');
-        if(!w){ w = document.createElement('div'); w.className='confetti'; box.appendChild(w); }
-        for(let i=0;i<10;i++){
-            const p = document.createElement('i');
-            p.style.left = (10+Math.random()*80)+'%';
-            p.style.top = (0+Math.random()*6)+'%';
-            w.appendChild(p);
-            setTimeout(()=>p.remove(), 750);
-        }
-    }
-
-    function renderQueue(){
-        const qWrap = byId('queueList');
-        qWrap.innerHTML = '';
-
-        const tracks = [...state.queue];
-        if(!tracks.length){
-            qWrap.innerHTML = `<div class="empty">Queue is empty</div>`;
-            return;
-        }
-
-        for(const t of tracks){
-            const row = document.createElement('div');
-            row.className = 'row';
-
-            const id = t.track_id || t.id;
-            const voted = state.myVotes.has(id);
-
-            const title = (t.title || t.name || 'Untitled');
-            const artist = (t.artist || '');
-            const cover = (t.cover_url || '');
-
-            const votes = Number(t.votes || 0);
-            const percent = Math.max(0, Math.min(100, votes));
-
-            row.innerHTML = `
-                <div class="art" style="${cover ? `background-image:url('${cover.replaceAll("'","%27")}')` : ''}" aria-hidden="true"></div>
-                <div class="body">
-                  <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
-                  <div class="note muted">${t.note || ''}</div>
-                  <div class="bar" style="--p:${percent}%; --t:0%">
-                    <span class="v"></span><span class="t"></span>
-                  </div>
-                </div>
-                <button class="vote ${voted?'voted':''}" data-id="${id}" ${(!state.votingOpen || voted) ? 'disabled' : ''}>${voted?'Voted':'Vote'}</button>
-            `;
-            qWrap.appendChild(row);
-        }
-
-        qWrap.onclick = async (e)=>{
-            const btn = e.target.closest('.vote'); if(!btn) return;
-            const id = btn.dataset.id;
-            if(!state.votingOpen || state.myVotes.has(id)) return;
-
-            try{
-                await postJSON(EP.vote(EVENT_ID), { track_id:id });
-                state.myVotes.add(id);
-                btn.classList.add('voted'); btn.textContent='Voted'; btn.disabled = true;
-                confettiAt(btn);
-            }catch(err){
-                console.error(err);
-                alert('Vote failed');
-            }
-        };
-    }
-
-    function renderMine(){
-        const box = byId('myVotes');
-        const ids = Array.from(state.myVotes);
-        if(!ids.length){
-            box.innerHTML = `<div class="empty i18n" data-key="empty_en">You have not voted yet.</div>
-                             <div class="empty i18n hidden" data-key="empty_ru">Вы ещё не голосовали.</div>`;
-            setLang(state.lang);
-            return;
-        }
-
-        const picked = state.queue.filter(t=>{
-            const id = t.track_id || t.id;
-            return ids.includes(id);
-        });
-
-        const rows = picked.map(t=>{
-            const cover = t.cover_url || '';
-            const title = (t.title || t.name || 'Untitled');
-            const artist = (t.artist || '');
-            return `
-                <div class="row">
-                  <div class="art" style="${cover ? `background-image:url('${cover.replaceAll("'","%27")}')` : ''}"></div>
-                  <div class="body">
-                    <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
-                    <div class="note muted">${t.note||''}</div>
-                    <div class="bar" style="--p:0%; --t:0%"><span class="v"></span><span class="t"></span></div>
-                  </div>
-                  <div class="vote voted">Voted</div>
-                </div>`;
-        }).join('');
-
-        box.innerHTML = `<div class="list">${rows}</div>`;
-    }
-
-    function updateNowTimer(){
-        const now = Math.floor(Date.now()/1000);
-        let text = '—';
-
-        if(state.votingOpen && state.voteClosesAt){
-            text = `Voting closes in: ${msToClock(state.voteClosesAt - now)}`;
-        }else if(state.trackEndsAt){
-            text = `Ends in: ${msToClock(state.trackEndsAt - now)}`;
-        }
-
-        byId('nowTimer').textContent = text;
-    }
-
-    // ================== DATA ==================
-    async function refreshEvent(){
-        try{
-            const data = await getJSON(EP.event(EVENT_ID));
-            state.event = data;
-            renderEventHeader();
-
-            const st = data?.state || {};
-            state.votingOpen = (st.voting_open === "1");
-            state.voteClosesAt = Number(st.vote_closes_at || 0);
-            state.trackEndsAt = Number(st.track_ends_at || 0);
-
-            updateNowTimer();
-        }catch(e){
-            // ✅ event not found => 404
-            location.replace('/404');
-            throw e;
-        }
-    }
-
-    async function refreshQueue(){
-        try{
-            const data = await getJSON(EP.queue(EVENT_ID));
-            state.queue = (data && data.items) ? data.items : [];
-            renderQueue();
-            renderMine();
-        }catch(e){
-            // if queue fails because event not found -> 404
-            if(String(e.message) === '404') location.replace('/404');
-        }
-    }
-
-    // ================== PROFILE / NOTIFS ==================
-    const tog = byId('notifs');
-    tog.addEventListener('change', ()=>{ localStorage.setItem('nt_user_notifs', tog.checked?'1':'0'); });
-    tog.checked = localStorage.getItem('nt_user_notifs')==='1';
-
-    // ================== BOTTOM NAV ==================
-    function selectTab(id){
-        $('.btab').forEach(b=>b.classList.toggle('active', b.dataset.target===id));
-        $('.screen').forEach(s=>s.classList.toggle('active', s.id===id));
-    }
-    $('.btab').forEach(b=>b.addEventListener('click', ()=>selectTab(b.dataset.target)));
-
-    // ================== TELEGRAM AUTH ==================
-    async function authViaTelegram(){
-        const tg = window.Telegram?.WebApp;
-        if(!tg || !tg.initDataUnsafe?.user) return null;
-
-        try{
-            const res = await fetch(EP.authWebApp(tg.initData));
-            if(!res.ok) throw new Error('auth failed');
-            const payload = await res.json();
-            if(payload?.access_token) setAuth(payload.access_token);
-            if(payload?.user) state.user = payload.user;
-            renderUser();
-            return payload;
-        }catch(e){
-            const u = tg.initDataUnsafe.user;
-            state.user = { tg_id: u?.id, tg_username: u?.username, img: u?.photo_url };
-            renderUser();
-            return null;
-        }
-    }
-
-    // ================== WEBSOCKET ==================
-    function connectWS(){
-        const wsBase = API_BASE
-        const wsUrl = wsBase + `/events/${EVENT_SLUG}`;
-        const ws = new WebSocket(wsUrl);
-
-        ws.onmessage = (ev)=>{
-            try{
-                const msg = JSON.parse(ev.data);
-
-                if(msg.type === 'voting_open'){
-                    state.votingOpen = true;
-                    state.voteClosesAt = Number(msg.vote_closes_at || 0);
-                    refreshQueue().catch(()=>{});
-                }
-
-                if(msg.type === 'voting_closed'){
-                    state.votingOpen = false;
-                }
-
-                if(msg.type === 'track_started'){
-                    const track = msg.track || null;
-                    setNowPlaying(track);
-                    state.trackEndsAt = Number(msg.ends_at || 0);
-                    state.votingOpen = false;
-                    refreshQueue().catch(()=>{});
-                }
-
-                if(msg.type === 'vote' || msg.type === 'queue_added' || msg.type === 'track_finished'){
-                    refreshQueue().catch(()=>{});
-                }
-
-                updateNowTimer();
-            }catch(e){}
-        };
-
-        ws.onclose = ()=>{
-            setTimeout(connectWS, 1500);
-        };
-    }
-
-    // ================== AUTOCOMPLETE placeholders ==================
-    const acBox = byId('acList');
-    const qInput = byId('q');
-    function hideAC(){ acBox.classList.add('hidden'); acBox.innerHTML=''; }
-
-    // ================== INIT ==================
-    async function init(){
-        const isInTG = !!window.Telegram?.WebApp?.initData;
-        if(isInTG){
-            byId('openTG').classList.add('hidden');
-            try { window.Telegram.WebApp.expand(); } catch{}
-        }
-
-        await authViaTelegram();
-        await refreshEvent();
-        await refreshQueue();
-        connectWS();
-
-        setInterval(updateNowTimer, 500);
-    }
-
-    init();
+  init();
 </script>
 </body>
 </html>
