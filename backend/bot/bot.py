@@ -5,11 +5,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BOT_TOKEN = "8399376497:AAFt0RfpefTQaSX8TAWoCCL0_V7Xi3-bvFw"
-WEBAPP_URL = "https://unsyncopated-shufflingly-gerald.ngrok-free.dev"
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("Open WebApp", web_app=WebAppInfo(url=WEBAPP_URL))]
+        [InlineKeyboardButton("Open WebApp", web_app=WebAppInfo(url='https://next-track.fun'))]
     ]
     await update.message.reply_text(
         "Welcome to Next Track!", reply_markup=InlineKeyboardMarkup(keyboard)
