@@ -45,7 +45,7 @@ async def create_admin(
 
 
 async def create_club(name: str, slug: str):
-    async with async_session_maker() as db:
+    async with get_async_session() as db:
         club = (
             await db.execute(
                 select(Club).where(Club.slug == slug)
