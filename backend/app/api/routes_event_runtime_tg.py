@@ -72,7 +72,7 @@ async def list_events_ep(
     return await list_events(db)
 
 
-@router.get("/{club_slug}", response_class=HTMLResponse)
+@router.get("/{club_slug}",response_model=EventResponse)
 async def get_event_for_users(
     request: Request,
     club_slug: str,
@@ -86,7 +86,7 @@ async def get_event_for_users(
     print("ALLES IM ORDNUNG")
     # return templates.TemplateResponse(
     #     "user.html",
-    return {'event': event or {}}
+    return {'event': event,'club_slug': club_slug}
 
 @router.get("/{club_slug}/state")
 async def get_state(
