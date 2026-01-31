@@ -90,6 +90,33 @@
     .row .bar{--p:0%; --t:0%; position:relative; height:8px; border-radius:999px; background:rgba(255,255,255,.09); overflow:hidden; margin-top:6px}
     .row .bar span.v{position:absolute; inset:0 auto 0 0; width:var(--p); background:linear-gradient(90deg,var(--accent1), #a1e1ff); transition:width .35s cubic-bezier(.2,.7,.2,1)}
     .row .bar span.t{position:absolute; inset:0 auto 0 0; width:var(--t); background:linear-gradient(90deg,var(--accent2), #ff9de6); opacity:.9; transition:width .35s cubic-bezier(.2,.7,.2,1)}
+    /* ✅ highlight current (now playing) track inside queue */
+    .row.now-playing{
+      border-color: rgba(255,255,255,.32);
+      background: linear-gradient(135deg, rgba(77,208,255,.14), rgba(255,77,210,.12));
+      box-shadow: 0 12px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    .now-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.2px;
+      border:1px solid rgba(255,255,255,.22);
+      background:rgba(255,255,255,.10);
+    }
+    .now-dot{
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:linear-gradient(90deg,var(--accent1),var(--accent2));
+      box-shadow:0 0 0 4px rgba(255,255,255,.06);
+    }
+
+
     .vote{border:none; padding:10px 12px; border-radius:12px; font-weight:900; background:linear-gradient(135deg, rgba(77,208,255,.18), rgba(255,77,210,.18)); border:1px solid rgba(255,255,255,.22); cursor:pointer}
     .vote.voted{position:relative; color:#0b0720; background:linear-gradient(135deg, rgba(119,242,161,.9), rgba(77,208,255,.65)); border-color:rgba(255,255,255,.4)}
     .vote.voted:after{content:"✓"; font-weight:900; margin-left:6px}
@@ -332,6 +359,8 @@
     votingOpen: false,
     voteClosesAt: 0,
     trackEndsAt: 0,
+      nowPlayingId: null,
+
 
     acSelected: null,
     isInTG: false,
@@ -523,25 +552,42 @@
 
   // ✅ No "default Now Playing": leave empty unless a track arrives from WS.
   function setNowPlaying(track){
-    const live = byId('liveBadge');
-    const titleEl = byId('nowTitle');
-    const coverEl = byId('nowCover');
+  const live = byId('liveBadge');
+  const titleEl = byId('nowTitle');
+  const coverEl = byId('nowCover');
 
-    if(!track){
-      titleEl.textContent = '—';
-      coverEl.textContent = '';
-      coverEl.style.backgroundImage = '';
-      live.classList.add('hidden');
-      return;
-    }
+  // ✅ no track => clear state + UI
+  if(!track){
+    state.nowPlayingId = null;
 
-    const title = (track.title || track.name || '').trim();
-    const artist = (track.artist || '').trim();
-    titleEl.textContent = (title || artist) ? `${title || '—'}${artist ? ' — ' + artist : ''}` : '—';
+    titleEl.textContent = '—';
+    coverEl.textContent = '';
+    coverEl.style.backgroundImage = '';
+    live.classList.add('hidden');
 
-    applyCover(coverEl, pickCoverUrl(track), fallbackLetter(track));
-    live.classList.remove('hidden');
+    // ✅ update queue highlighting (remove highlight)
+    renderQueue();
+    return;
   }
+
+  // ✅ save nowPlaying id (supports different field names)
+  const npId = String(track.track_id || track.id || track.trackId || '');
+  state.nowPlayingId = npId || null;
+
+  // ✅ UI title
+  const title = (track.title || track.name || '').trim();
+  const artist = (track.artist || '').trim();
+  titleEl.textContent = (title || artist) ? `${title || '—'}${artist ? ' — ' + artist : ''}` : '—';
+
+  // ✅ cover
+  applyCover(coverEl, pickCoverUrl(track), fallbackLetter(track));
+
+  live.classList.remove('hidden');
+
+  // ✅ update queue highlighting (add highlight)
+  renderQueue();
+}
+
 
   // Suggested by: if track_id is user:<tg_id>:... and it equals current user => show their @username.
   function getSuggestedByUsername(t){
