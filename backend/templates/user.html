@@ -48,7 +48,14 @@
     .now{margin:14px 0 6px}
     .card{background:var(--glass); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
     .now .inner{display:flex; gap:14px; padding:14px}
-    .cover{width:62px; height:62px; border-radius:14px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); background-size:cover; background-position:center; display:flex; align-items:center; justify-content:center; font-weight:900; letter-spacing:.2px}
+    .cover{
+      width:62px; height:62px; border-radius:14px;
+      background:linear-gradient(135deg,var(--accent1),var(--accent2));
+      background-size:cover; background-position:center;
+      display:flex; align-items:center; justify-content:center;
+      font-weight:900; letter-spacing:.2px;
+      user-select:none;
+    }
     .meta{display:flex; flex-direction:column; gap:6px; min-width:0}
     .title{font-weight:900; font-size:18px}
     .sub{color:var(--muted)}
@@ -69,7 +76,14 @@
 
     .list{display:flex; flex-direction:column; gap:10px; padding:12px}
     .row{display:flex; gap:12px; align-items:center; padding:12px; border-radius:14px; background:rgba(255,255,255,.06); border:1px solid var(--border)}
-    .row .art{width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); background-size:cover; background-position:center; display:flex; align-items:center; justify-content:center; font-weight:900}
+    .row .art{
+      width:46px; height:46px; border-radius:12px;
+      background:linear-gradient(135deg,var(--accent1),var(--accent2));
+      background-size:cover; background-position:center;
+      display:flex; align-items:center; justify-content:center;
+      font-weight:900;
+      user-select:none;
+    }
     .row .body{flex:1 1 auto; min-width:0}
     .row .name{font-weight:800}
     .row .note{color:var(--muted); font-size:12px}
@@ -465,7 +479,7 @@
     try { return encodeURI(u).replaceAll("'","%27"); } catch { return u.replaceAll("'","%27"); }
   }
 
-  // ✅ Your /queue: cover_url may be null. If null => fallback art.
+  // Cover in your /queue is "cover_url" (may be null). We'll also support other names.
   function pickCoverUrl(t){
     const url =
       (t && (t.cover_url || t.coverUrl || t.cover || t.artwork || t.artwork_url)) ||
@@ -479,6 +493,18 @@
     return ch.toUpperCase();
   }
 
+  // If cover is missing => show letter + keep gradient. If cover exists => show cover.
+  function applyCover(el, coverUrl, fallbackText){
+    const url = cssUrl(coverUrl);
+    if(url){
+      el.style.backgroundImage = `url('${url}')`;
+      el.textContent = '';
+    }else{
+      el.style.backgroundImage = '';
+      el.textContent = fallbackText || '—';
+    }
+  }
+
   function renderUser(){
     const name = state.user?.tg_username ? '@'+state.user.tg_username : '@guest';
     byId('userName').textContent = name;
@@ -488,7 +514,6 @@
   }
 
   function renderEventHeader(){
-    // From your /events response: {title, ...}
     const ev = state.event || {};
     const clubName = EVENT_SLUG ? EVENT_SLUG.toUpperCase() : '—';
     const eventName = (ev.title || ev.name || '—');
@@ -496,7 +521,7 @@
     byId('eventName').textContent = eventName;
   }
 
-  // ✅ No “default Now Playing”: show title only if we have a track.
+  // ✅ No "default Now Playing": leave empty unless a track arrives from WS.
   function setNowPlaying(track){
     const live = byId('liveBadge');
     const titleEl = byId('nowTitle');
@@ -504,8 +529,8 @@
 
     if(!track){
       titleEl.textContent = '—';
-      coverEl.style.backgroundImage = '';
       coverEl.textContent = '';
+      coverEl.style.backgroundImage = '';
       live.classList.add('hidden');
       return;
     }
@@ -514,21 +539,11 @@
     const artist = (track.artist || '').trim();
     titleEl.textContent = (title || artist) ? `${title || '—'}${artist ? ' — ' + artist : ''}` : '—';
 
-    const cover = pickCoverUrl(track);
-    const artUrl = cssUrl(cover);
-
-    if(artUrl){
-      coverEl.style.backgroundImage = `url('${artUrl}')`;
-      coverEl.textContent = '';
-    }else{
-      coverEl.style.backgroundImage = '';
-      coverEl.textContent = fallbackLetter(track);
-    }
-
+    applyCover(coverEl, pickCoverUrl(track), fallbackLetter(track));
     live.classList.remove('hidden');
   }
 
-  // ✅ From your track_id: user:<tg_id>:...
+  // Suggested by: if track_id is user:<tg_id>:... and it equals current user => show their @username.
   function getSuggestedByUsername(t){
     const trackId = String(t?.track_id || t?.id || '');
     const m = trackId.match(/^user:(\d+):/);
@@ -579,8 +594,6 @@
       const artist = escapeHtml(t.artist || '');
 
       const cover = pickCoverUrl(t); // may be null/empty from backend
-      const artUrl = cssUrl(cover);
-
       const votes = Number(t.votes || 0);
       const percent = Math.max(0, Math.min(100, votes));
 
@@ -588,9 +601,12 @@
       const existingNote = escapeHtml(t.note || '');
       const noteLine = `виставлено ${who}` + (existingNote ? ` • ${existingNote}` : '');
 
+      const fallback = escapeHtml(fallbackLetter(t));
+      const coverCss = cssUrl(cover);
+
       row.innerHTML = `
         <div class="art" aria-hidden="true"
-             style="${artUrl ? `background-image:url('${artUrl}')` : ''}">${artUrl ? '' : escapeHtml(fallbackLetter(t))}</div>
+             style="${coverCss ? `background-image:url('${coverCss}')` : ''}">${coverCss ? '' : fallback}</div>
         <div class="body">
           <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
           <div class="note muted">${noteLine}</div>
@@ -644,16 +660,19 @@
     });
 
     const rows = picked.map(t=>{
-      const artUrl = cssUrl(pickCoverUrl(t));
+      const cover = pickCoverUrl(t);
+      const coverCss = cssUrl(cover);
       const title = escapeHtml(t.title || t.name || 'Untitled');
       const artist = escapeHtml(t.artist || '');
       const who = escapeHtml(getSuggestedByUsername(t));
       const existingNote = escapeHtml(t.note || '');
       const noteLine = `виставлено ${who}` + (existingNote ? ` • ${existingNote}` : '');
 
+      const fallback = escapeHtml(fallbackLetter(t));
+
       return `
         <div class="row">
-          <div class="art" style="${artUrl ? `background-image:url('${artUrl}')` : ''}">${artUrl ? '' : escapeHtml(fallbackLetter(t))}</div>
+          <div class="art" style="${coverCss ? `background-image:url('${coverCss}')` : ''}">${coverCss ? '' : fallback}</div>
           <div class="body">
             <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
             <div class="note muted">${noteLine}</div>
@@ -679,6 +698,7 @@
     byId('nowTimer').textContent = text;
   }
 
+  // ================== AUTOCOMPLETE ==================
   const acBox = byId('acList');
   const qInput = byId('q');
 
@@ -763,6 +783,66 @@
     hideAC();
   });
 
+  // ================== SUGGEST (FIXED: if not selected, fetch first match from /search to get cover_url) ==================
+  function safeIntOrNull(x){
+    const n = Number(x);
+    return Number.isFinite(n) ? Math.trunc(n) : null;
+  }
+  function normalizeStr(x){
+    const s = String(x ?? "").trim();
+    return s ? s : null;
+  }
+
+  async function resolveTrackMetaForSuggest(rawText){
+    const selected = state.acSelected;
+
+    if(selected && selected.title){
+      return {
+        track_id: normalizeStr(selected.id),
+        title: String(selected.title || '').trim(),
+        artist: normalizeStr(selected.artist),
+        cover_url: normalizeStr(selected.cover_url),
+        duration_sec: safeIntOrNull(selected.duration_sec),
+      };
+    }
+
+    const parts = String(rawText || '').split(/ — | - | – /);
+    const title = String(parts[0] || '').trim();
+    const artist = String(parts[1] || '').trim();
+
+    if(!title){
+      return { track_id:null, title:'', artist:null, cover_url:null, duration_sec:null };
+    }
+
+    try{
+      const q = artist ? `${title} ${artist}` : title;
+      const res = await getJSON(EP.search(q, 10), { timeoutMs: 6500 });
+      const items = (res && res.items) ? res.items : [];
+      const first = items[0];
+
+      if(first && first.title){
+        return {
+          track_id: normalizeStr(first.id),
+          title: String(first.title || title).trim(),
+          artist: normalizeStr(first.artist || artist),
+          cover_url: normalizeStr(first.cover_url),
+          duration_sec: safeIntOrNull(first.duration_sec),
+        };
+      }
+    }catch(e){
+      console.warn('[resolveTrackMetaForSuggest] search failed:', e);
+    }
+
+    return {
+      track_id: null,
+      title,
+      artist: normalizeStr(artist),
+      cover_url: null,
+      duration_sec: null,
+    };
+  }
+
+  // ================== DATA ==================
   async function refreshEvent(){
     try{
       hideInlineError();
@@ -777,7 +857,6 @@
 
       renderEventHeader();
 
-      // your /events does not have "state" now, so keep defaults
       updateNowTimer();
 
       // no now_playing from backend yet -> keep empty
@@ -823,37 +902,32 @@
       return;
     }
 
-    const selected = state.acSelected;
-    let payload = null;
-
-    // ✅ if user clicked autocomplete item => send cover_url and duration
-    if(selected && selected.title){
-      payload = {
-        track_id: selected.id || null,
-        title: selected.title,
-        artist: selected.artist || null,
-        cover_url: selected.cover_url || null,
-        duration_sec: Number(selected.duration_sec || 0) || 0,
-      };
-    } else {
-      const parts = raw.split(/ — | - | – /);
-      const title = (parts[0]||'').trim();
-      const artist = (parts[1]||'').trim() || null;
-      payload = { title, artist, cover_url: null, duration_sec: 0 };
-    }
-
     try{
       hideInlineError();
-      await postJSON(EP.suggest(EVENT_SLUG), payload);
+
+      const payload = await resolveTrackMetaForSuggest(raw);
+
+      if(!payload.title){
+        showInlineError('Error', 'Title is required');
+        return;
+      }
+
+      // remove undefined values
+      const cleaned = JSON.parse(JSON.stringify(payload));
+
+      await postJSON(EP.suggest(EVENT_SLUG), cleaned);
+
       byId('q').value='';
       state.acSelected = null;
       hideAC();
+
       await refreshQueue();
       selectTab('queue');
     }catch(err){
       console.error(err);
       const status = err?.status ?? 0;
       if (status === 401 || status === 403) showInlineError('Not authorized', 'Backend rejected token (401/403).', 0);
+      else if (status === 422) showInlineError('Error', 'Bad payload (422). Check backend SuggestIn schema.', 0);
       else showInlineError('Error', 'Suggest failed');
     }
   });
