@@ -132,7 +132,6 @@
     .ac-title{font-weight:800}
     .ac-sub{font-size:12px; color:var(--muted)}
 
-    /* ✅ NEW: inline banner (no overlay) */
     .inline-banner{
       margin:12px 0 0;
       padding:12px 12px;
@@ -189,7 +188,6 @@
   <main class="views">
     <div class="container">
 
-      <!-- ✅ Banner is now INLINE (no overlay) -->
       <div id="inlineError" class="inline-banner hidden" role="alert" aria-live="assertive">
         <div>
           <b id="inlineTitle">Error</b>
@@ -272,7 +270,6 @@
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
-  // ================== CONFIG ==================
   const API_BASE = "https://next-track.fun/api/v1";
   const WS_BASE  = "wss://next-track.fun";
 
@@ -285,7 +282,6 @@
     search:     (q,limit=15)=> `${API_BASE}/search/?q=${encodeURIComponent(q)}&limit=${limit}`,
   };
 
-  // ================== HELPERS ==================
   const $ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
   const byId = id => document.getElementById(id);
 
@@ -323,7 +319,6 @@
     votingOpen: false,
     voteClosesAt: 0,
     trackEndsAt: 0,
-
     acSelected: null,
     isInTG: false,
   };
@@ -333,7 +328,6 @@
     return state.token ? { 'Authorization': `Bearer ${state.token}` } : {};
   }
 
-  // ================== INLINE ERROR (NO OVERLAY) ==================
   let inlineTimer = null;
 
   function showInlineError(title, msg, autoHideMs=2800){
@@ -358,7 +352,6 @@
 
   byId('inlineClose').addEventListener('click', hideInlineError);
 
-  // ================== HTTP ==================
   class HttpError extends Error {
     constructor(message, {status=0, url='', bodyText='', isNetwork=false} = {}) {
       super(message);
@@ -442,7 +435,6 @@
     return `${m}:${String(r).padStart(2,'0')}`;
   }
 
-  // ================== LANGUAGE ==================
   const langButtons = $('.lang-toggle button');
   function setLang(code){
     langButtons.forEach(b=>b.classList.toggle('active', b.dataset.lang===code));
@@ -460,7 +452,6 @@
   langButtons.forEach(b=>b.addEventListener('click', ()=>setLang(b.dataset.lang)));
   setLang(state.lang);
 
-  // ================== UI RENDER ==================
   function renderUser(){
     const name = state.user?.tg_username ? '@'+state.user.tg_username : '@guest';
     byId('userName').textContent = name;
@@ -522,6 +513,37 @@
     }
   }
 
+  // ✅ NEW: detect "my suggested track" and return avatar url
+  function getSuggestAvatar(track){
+    const userAvatar = (state.user?.img || '').trim();
+    if(!userAvatar) return '';
+
+    const myId = state.user?.tg_id;
+    if(!myId) return '';
+
+    // 1) backend may return suggested_by fields
+    const suggestedBy =
+      track?.suggested_by?.tg_id ??
+      track?.suggested_by ??
+      track?.tg_id ??
+      track?.user_id ??
+      track?.created_by ??
+      track?.author_id ??
+      null;
+
+    if (suggestedBy != null && String(suggestedBy) === String(myId)) {
+      return userAvatar;
+    }
+
+    // 2) fallback: your stable track_id format: "user:{tg_id}:{title}"
+    const trackId = String(track?.track_id || track?.id || '');
+    if (trackId.startsWith(`user:${myId}:`)) {
+      return userAvatar;
+    }
+
+    return '';
+  }
+
   function renderQueue(){
     const qWrap = byId('queueList');
     qWrap.innerHTML = '';
@@ -541,13 +563,16 @@
 
       const title = (t.title || t.name || 'Untitled');
       const artist = (t.artist || '');
-      const cover = (t.cover_url || '');
+
+      // ✅ ONLY CHANGE: art uses user avatar for "my suggested"
+      const myAvatar = getSuggestAvatar(t);
+      const artUrl = (myAvatar || t.cover_url || '').trim();
 
       const votes = Number(t.votes || 0);
       const percent = Math.max(0, Math.min(100, votes));
 
       row.innerHTML = `
-        <div class="art" style="${cover ? `background-image:url('${cover.replaceAll("'","%27")}')` : ''}" aria-hidden="true"></div>
+        <div class="art" style="${artUrl ? `background-image:url('${String(artUrl).replaceAll("'","%27")}')` : ''}" aria-hidden="true"></div>
         <div class="body">
           <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
           <div class="note muted">${t.note || ''}</div>
@@ -566,7 +591,6 @@
       if(!state.votingOpen || state.myVotes.has(id)) return;
 
       if(!state.token){
-        // ✅ better message + NO overlay + stays until закрыли
         showInlineError('Auth required', 'Token missing. WebApp auth did not complete. Check console.', 0);
         return;
       }
@@ -602,12 +626,16 @@
     });
 
     const rows = picked.map(t=>{
-      const cover = t.cover_url || '';
       const title = (t.title || t.name || 'Untitled');
       const artist = (t.artist || '');
+
+      // ✅ ONLY CHANGE: art uses user avatar for "my suggested"
+      const myAvatar = getSuggestAvatar(t);
+      const artUrl = (myAvatar || t.cover_url || '').trim();
+
       return `
         <div class="row">
-          <div class="art" style="${cover ? `background-image:url('${cover.replaceAll("'","%27")}')` : ''}"></div>
+          <div class="art" style="${artUrl ? `background-image:url('${String(artUrl).replaceAll("'","%27")}')` : ''}"></div>
           <div class="body">
             <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
             <div class="note muted">${t.note||''}</div>
@@ -633,7 +661,6 @@
     byId('nowTimer').textContent = text;
   }
 
-  // ================== AUTOCOMPLETE ==================
   const acBox = byId('acList');
   const qInput = byId('q');
 
@@ -718,7 +745,6 @@
     hideAC();
   });
 
-  // ================== DATA ==================
   async function refreshEvent(){
     try{
       hideInlineError();
@@ -773,13 +799,11 @@
     }
   }
 
-  // ================== SUGGEST ==================
   byId('add').addEventListener('click', async ()=>{
     const raw = byId('q').value.trim();
     if(!raw) return;
 
     if(!state.token){
-      // ✅ message without blaming user
       showInlineError('Auth required', 'Backend expects Telegram token. Auth did not complete.', 0);
       return;
     }
@@ -818,19 +842,16 @@
     }
   });
 
-  // ================== PROFILE / NOTIFS ==================
   const tog = byId('notifs');
   tog.addEventListener('change', ()=>{ localStorage.setItem('nt_user_notifs', tog.checked?'1':'0'); });
   tog.checked = localStorage.getItem('nt_user_notifs')==='1';
 
-  // ================== BOTTOM NAV ==================
   function selectTab(id){
     $('.btab').forEach(b=>b.classList.toggle('active', b.dataset.target===id));
     $('.screen').forEach(s=>s.classList.toggle('active', s.id===id));
   }
   $('.btab').forEach(b=>b.addEventListener('click', ()=>selectTab(b.dataset.target)));
 
-  // ================== TELEGRAM AUTH (GET + POST) ==================
   function pickToken(payload){
     if(!payload) return null;
     return (
@@ -849,7 +870,6 @@
 
     if(!state.isInTG) return null;
 
-    // user info fallback
     try{
       const u = tg?.initDataUnsafe?.user;
       if(u){
@@ -860,7 +880,6 @@
 
     const initData = tg.initData;
 
-    // 1) try GET (as you had)
     try{
       const r = await fetch(EP.authWebApp(initData), { method:'GET', headers:{'Accept':'application/json'} });
       const txt = await r.text();
@@ -871,7 +890,6 @@
         if(token){
           setAuth(token);
           if(payload?.user) { state.user = payload.user; renderUser(); }
-          console.info('[auth] ok via GET');
           return payload;
         }
       }
@@ -880,36 +898,10 @@
       console.warn('[auth] GET exception', e);
     }
 
-    // 2) try POST (common pattern)
-    try{
-      const r = await fetch(`${API_BASE}/auth/telegram/webapp`, {
-        method:'POST',
-        headers:{ 'Accept':'application/json', 'Content-Type':'application/json' },
-        body: JSON.stringify({ init_data: initData })
-      });
-      const txt = await r.text();
-      let payload = null;
-      try{ payload = txt ? JSON.parse(txt) : null; }catch(_){ payload = null; }
-      if(r.ok){
-        const token = pickToken(payload);
-        if(token){
-          setAuth(token);
-          if(payload?.user) { state.user = payload.user; renderUser(); }
-          console.info('[auth] ok via POST');
-          return payload;
-        }
-      }
-      console.warn('[auth] POST failed or no token', r.status, payload);
-    }catch(e){
-      console.warn('[auth] POST exception', e);
-    }
-
-    // If we're in TG but token is missing => backend mismatch
     showInlineError('Auth failed', 'WebApp is opened, but token was not issued. Check /auth endpoint.', 0);
     return null;
   }
 
-  // ================== WEBSOCKET ==================
   function connectWS(){
     if(!EVENT_SLUG) return;
 
@@ -949,7 +941,6 @@
     ws.onclose = ()=> setTimeout(connectWS, 1500);
   }
 
-  // ================== INIT ==================
   async function init(){
     if(!EVENT_SLUG){
       location.replace('/404');
