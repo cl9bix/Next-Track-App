@@ -131,8 +131,14 @@
     .ac-title{font-weight:800}
     .ac-sub{font-size:12px; color:var(--muted)}
 
-    /* ===== PROD: error banner (fits glass UI) ===== */
-    .fatal-wrap{position:fixed; left:0; right:0; top:10px; z-index:9999; pointer-events:none}
+    /* ===== PROD: error banner under header ===== */
+    .fatal-wrap{
+      position:fixed;
+      left:0; right:0;
+      top: calc(64px + env(safe-area-inset-top, 0px));
+      z-index: 100;
+      pointer-events:none;
+    }
     .fatal{
       pointer-events:auto;
       width:min(var(--maxw), calc(100% - 32px));
@@ -167,7 +173,6 @@
 <div class="bg"></div>
 <div class="blob b1"></div><div class="blob b2"></div>
 
-<!-- PROD error banner -->
 <div class="fatal-wrap">
   <div id="fatalError" class="fatal hidden" role="alert" aria-live="assertive">
     <div>
@@ -191,7 +196,6 @@
       </div>
 
       <div style="display:flex; gap:8px; align-items:center">
-        <!-- ✅ тут буде: Club Name • Event Name -->
         <span class="event-pill">🎧 <span id="djName">Loading…</span> • <span id="eventName">Loading…</span></span>
         <div class="lang-toggle">
           <button data-lang="en" class="active">EN</button>
@@ -207,14 +211,12 @@
         <div class="inner">
           <div class="cover" id="nowCover" aria-hidden="true"></div>
           <div class="meta" style="flex:1 1 auto">
-            <!-- ✅ без "дефолтної Now Playing": поки нема треку — Loading… -->
             <div class="title" id="nowTitle">Loading…</div>
             <div class="sub muted i18n" data-key="now_en">Now playing</div>
             <div class="sub muted i18n hidden" data-key="now_ru">Сейчас играет</div>
             <div class="bars"><span></span></div>
             <div class="sub muted" id="nowTimer">—</div>
           </div>
-          <!-- ✅ LIVE не показуємо, поки нема реального треку -->
           <div class="live hidden" id="liveBadge">LIVE</div>
         </div>
       </section>
@@ -261,7 +263,7 @@
             <label class="switch"><input id="notifs" type="checkbox" class="tog"><span></span></label>
           </div>
 
-          <a class="btn" id="openTG" href="https://t.me/next_track_bot?start=start" target="_blank" rel="noopener">Open in Telegram</a>
+          <a class="btn" id="openTG" href="https://t.me/next_track_bot?start=webapp" target="_blank" rel="noopener">Open in Telegram</a>
         </div>
       </section>
     </div>
@@ -280,17 +282,17 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
   // ================== CONFIG ==================
-  // REST API base:
   const API_BASE = "https://next-track.fun/api/v1";
   const WS_BASE  = "wss://next-track.fun";
 
+  // ⚠️ ВАЖЛИВО: search endpoint зробив зі слешем "/search/" бо твій роут @router.get("/")
   const EP = {
     authWebApp: (initData) => `${API_BASE}/auth/telegram/webapp?init_data=${encodeURIComponent(initData)}`,
     event:      (slug)     => `${API_BASE}/events/${encodeURIComponent(slug)}`,
     queue:      (slug)     => `${API_BASE}/events/${encodeURIComponent(slug)}/queue`,
     vote:       (slug)     => `${API_BASE}/events/${encodeURIComponent(slug)}/vote`,
     suggest:    (slug)     => `${API_BASE}/events/${encodeURIComponent(slug)}/suggest`,
-    search:     (q,limit=15)=> `${API_BASE}/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+    search:     (q,limit=15)=> `${API_BASE}/search/?q=${encodeURIComponent(q)}&limit=${limit}`,
   };
 
   // ================== HELPERS ==================
@@ -331,6 +333,10 @@
     votingOpen: false,
     voteClosesAt: 0,
     trackEndsAt: 0,
+
+    // autocomplete selection
+    acSelected: null,
+    acOpen: false,
   };
 
   function setAuth(token){ state.token = token; }
@@ -339,15 +345,28 @@
   }
 
   // ===== PROD errors =====
-  function showFatalError(title, msg){
+  let fatalTimer = null;
+
+  function showFatalError(title, msg, autoHideMs=2800){
     const box = byId('fatalError');
     byId('fatalTitle').textContent = title || 'Error';
     byId('fatalMsg').textContent = msg || '';
     box.classList.remove('hidden');
+
+    if (fatalTimer) clearTimeout(fatalTimer);
+    if (autoHideMs && autoHideMs > 0){
+      fatalTimer = setTimeout(()=> hideFatalError(), autoHideMs);
+    }
   }
+
   function hideFatalError(){
-    byId('fatalError').classList.add('hidden');
+    const box = byId('fatalError');
+    box.classList.add('hidden');
+    byId('fatalTitle').textContent = 'Error';
+    byId('fatalMsg').textContent = '';
+    if (fatalTimer) { clearTimeout(fatalTimer); fatalTimer = null; }
   }
+
   byId('fatalClose').addEventListener('click', hideFatalError);
 
   // ================== HTTP (PROD) ==================
@@ -375,41 +394,22 @@
         signal: controller.signal
       });
 
-      const ct = (res.headers.get('content-type') || '').toLowerCase();
-      const isJson = ct.includes('application/json');
-
-      // читаємо тіло 1 раз (важливо для HTML на 502)
       let bodyText = '';
       try { bodyText = await res.text(); } catch(_) { bodyText = ''; }
 
       if(!res.ok){
-        throw new HttpError(`HTTP ${res.status}`, {
-          status: res.status,
-          url: res.url,
-          bodyText,
-          isNetwork: false
-        });
+        throw new HttpError(`HTTP ${res.status}`, { status: res.status, url: res.url, bodyText, isNetwork:false });
       }
 
       if(!bodyText) return null;
 
-      // якщо 200, але повернули HTML/битий JSON
-      try{
-        return JSON.parse(bodyText);
-      }catch(_){
-        throw new HttpError('Invalid JSON', {
-          status: res.status,
-          url: res.url,
-          bodyText: isJson ? bodyText : bodyText.slice(0, 500),
-          isNetwork: false
-        });
-      }
+      try{ return JSON.parse(bodyText); }
+      catch(_){ throw new HttpError('Invalid JSON', { status: res.status, url: res.url, bodyText: bodyText.slice(0, 500), isNetwork:false }); }
+
     }catch(e){
-      if (e && e.name === 'AbortError'){
-        throw new HttpError('Timeout', { status: 0, url, isNetwork: true });
-      }
+      if (e && e.name === 'AbortError') throw new HttpError('Timeout', { status: 0, url, isNetwork:true });
       if (e instanceof HttpError) throw e;
-      throw new HttpError(e?.message || 'Network error', { status: 0, url, isNetwork: true });
+      throw new HttpError(e?.message || 'Network error', { status: 0, url, isNetwork:true });
     }finally{
       clearTimeout(t);
     }
@@ -439,9 +439,7 @@
       try{ return JSON.parse(bodyText); }catch(_){ return null; }
 
     }catch(e){
-      if (e && e.name === 'AbortError'){
-        throw new HttpError('Timeout', { status: 0, url, isNetwork:true });
-      }
+      if (e && e.name === 'AbortError') throw new HttpError('Timeout', { status: 0, url, isNetwork:true });
       if (e instanceof HttpError) throw e;
       throw new HttpError(e?.message || 'Network error', { status: 0, url, isNetwork:true });
     }finally{
@@ -492,36 +490,19 @@
     return fallback;
   }
 
-  // ✅ Header: club name + event name
   function renderEventHeader(){
     const ev = state.event || {};
-    const clubName = pickFirst(ev, [
-      'club.name',
-      'club.title',
-      'club_name',
-      'clubTitle',
-      'clubName'
-    ], EVENT_SLUG ? EVENT_SLUG.toUpperCase() : '—');
-
-    const eventName = pickFirst(ev, [
-      'title',
-      'name',
-      'event.title',
-      'event.name',
-      'event_title'
-    ], '—');
-
+    const clubName = pickFirst(ev, ['club.name','club.title','club_name','clubTitle','clubName'], EVENT_SLUG ? EVENT_SLUG.toUpperCase() : '—');
+    const eventName = pickFirst(ev, ['title','name','event.title','event.name','event_title'], '—');
     byId('djName').textContent = clubName;
     byId('eventName').textContent = eventName;
   }
 
-  // ✅ Now playing: no fake defaults, only real data
   function setNowPlaying(track){
     const live = byId('liveBadge');
     const titleEl = byId('nowTitle');
 
     if(!track){
-      // loading/empty state
       titleEl.textContent = (state.lang === 'ru') ? 'Загрузка…' : 'Loading…';
       byId('nowCover').style.backgroundImage = '';
       live.classList.add('hidden');
@@ -531,15 +512,11 @@
     const title = (track.title || track.name || '').trim();
     const artist = (track.artist || '').trim();
     const combined = (title || artist) ? `${title || '—'}${artist ? ' — ' + artist : ''}` : ((state.lang === 'ru') ? 'Нет трека' : 'No track');
-
     titleEl.textContent = combined;
 
     const cover = (track.cover_url || track.cover || '').trim();
-    if(cover){
-      byId('nowCover').style.backgroundImage = `url("${cover.replaceAll('"','%22')}")`;
-    }else{
-      byId('nowCover').style.backgroundImage = '';
-    }
+    if(cover) byId('nowCover').style.backgroundImage = `url("${cover.replaceAll('"','%22')}")`;
+    else byId('nowCover').style.backgroundImage = '';
 
     live.classList.remove('hidden');
   }
@@ -601,14 +578,22 @@
       const id = btn.dataset.id;
       if(!state.votingOpen || state.myVotes.has(id)) return;
 
+      if(!state.token){
+        showFatalError('Not authorized', 'Open this page via Telegram WebApp.', 0);
+        return;
+      }
+
       try{
+        hideFatalError();
         await postJSON(EP.vote(EVENT_SLUG), { track_id:id });
         state.myVotes.add(id);
         btn.classList.add('voted'); btn.textContent='Voted'; btn.disabled = true;
         confettiAt(btn);
       }catch(err){
         console.error(err);
-        showFatalError('Error', 'Vote failed');
+        const status = err?.status ?? 0;
+        if(status === 401 || status === 403) showFatalError('Not authorized', 'Open via Telegram WebApp.', 0);
+        else showFatalError('Error', 'Vote failed');
       }
     };
   }
@@ -660,6 +645,99 @@
     byId('nowTimer').textContent = text;
   }
 
+  // ================== AUTOCOMPLETE (WORKING) ==================
+  const acBox = byId('acList');
+  const qInput = byId('q');
+
+  function hideAC(){
+    state.acOpen = false;
+    acBox.classList.add('hidden');
+    acBox.innerHTML = '';
+    state.acSelected = null;
+  }
+
+  function showAC(items){
+    if(!items || !items.length){
+      hideAC();
+      return;
+    }
+    state.acOpen = true;
+    acBox.classList.remove('hidden');
+
+    acBox.innerHTML = items.map((it, idx)=>{
+      const cover = it.cover_url || '';
+      const title = (it.title || '').replace(/</g,'&lt;');
+      const artist = (it.artist || '').replace(/</g,'&lt;');
+      const album = (it.album || '').replace(/</g,'&lt;');
+      return `
+        <div class="ac-item" data-idx="${idx}">
+          <div class="ac-cover" style="${cover ? `background-image:url('${String(cover).replaceAll("'","%27")}')` : ''}"></div>
+          <div style="min-width:0">
+            <div class="ac-title">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
+            <div class="ac-sub">${album ? album : it.source || ''}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  let acTimer = null;
+  let acLastQuery = '';
+
+  async function fetchAutocomplete(q){
+    q = (q || '').trim();
+    if(q.length < 2){
+      hideAC();
+      return;
+    }
+
+    // dedupe
+    if(q === acLastQuery) return;
+    acLastQuery = q;
+
+    try{
+      const res = await getJSON(EP.search(q, 15), { timeoutMs: 6000 });
+      const items = res?.items || [];
+      showAC(items);
+      // stash latest list on element to pick by idx
+      acBox._items = items;
+    }catch(e){
+      // якщо пошук впав — просто не показуємо, не спамимо банером
+      hideAC();
+      console.warn('[search] failed:', e);
+    }
+  }
+
+  qInput.addEventListener('input', ()=>{
+    const val = qInput.value;
+    if (acTimer) clearTimeout(acTimer);
+    acTimer = setTimeout(()=> fetchAutocomplete(val), 250);
+  });
+
+  qInput.addEventListener('focus', ()=>{
+    if(qInput.value.trim().length >= 2) fetchAutocomplete(qInput.value);
+  });
+
+  document.addEventListener('click', (e)=>{
+    if(!e.target.closest('.ac')) hideAC();
+  });
+
+  acBox.addEventListener('click', (e)=>{
+    const itemEl = e.target.closest('.ac-item');
+    if(!itemEl) return;
+    const idx = Number(itemEl.dataset.idx || 0);
+    const items = acBox._items || [];
+    const it = items[idx];
+    if(!it) return;
+
+    state.acSelected = it;
+    // заповнюємо input красиво
+    const line = `${it.title || ''}${it.artist ? ' — ' + it.artist : ''}`.trim();
+    qInput.value = line || qInput.value;
+
+    hideAC();
+  });
+
   // ================== DATA ==================
   async function refreshEvent(){
     try{
@@ -671,8 +749,6 @@
       }
 
       const data = await getJSON(EP.event(EVENT_SLUG));
-
-      // підтримка, якщо бек віддає {event: {...}}
       state.event = (data && data.event) ? data.event : data;
 
       renderEventHeader();
@@ -682,7 +758,6 @@
       state.voteClosesAt = Number(st.vote_closes_at || 0);
       state.trackEndsAt = Number(st.track_ends_at || 0);
 
-      // ✅ Now playing: беремо з event або з state.event.now_playing/current_track...
       const np = state.event?.now_playing || state.event?.current_track || state.event?.track || null;
       setNowPlaying(np);
 
@@ -700,7 +775,7 @@
       }
 
       if(status === 401 || status === 403){
-        showFatalError('Not authorized', 'Please open via Telegram WebApp or log in.');
+        showFatalError('Not authorized', 'Please open via Telegram WebApp.', 0);
         return null;
       }
 
@@ -728,7 +803,7 @@
       console.error('[refreshQueue] failed:', e);
       const status = e?.status ?? 0;
       if(status === 404) location.replace('/404');
-      else if(status === 401 || status === 403) showFatalError('Not authorized', 'Queue is not accessible.');
+      else if(status === 401 || status === 403) showFatalError('Not authorized', 'Queue is not accessible.', 0);
       else showFatalError('Service temporarily unavailable', 'Queue cannot be loaded right now.');
     }
   }
@@ -738,19 +813,45 @@
     const raw = byId('q').value.trim();
     if(!raw) return;
 
-    const parts = raw.split(/ — | - | – /);
-    const title = (parts[0]||'').trim();
-    const artist = (parts[1]||'').trim() || null;
+    if(!state.token){
+      showFatalError('Not authorized', 'Open this page via Telegram WebApp.', 0);
+      return;
+    }
+
+    // Якщо юзер вибрав з autocomplete — шлемо стабільний track_id + мету
+    const selected = state.acSelected;
+    let payload = null;
+
+    if(selected && selected.title){
+      payload = {
+        track_id: selected.id || null,
+        title: selected.title,
+        artist: selected.artist || null,
+        cover_url: selected.cover_url || null,
+        duration_sec: Number(selected.duration_sec || 0) || 0,
+      };
+    } else {
+      // fallback: ручний ввід
+      const parts = raw.split(/ — | - | – /);
+      const title = (parts[0]||'').trim();
+      const artist = (parts[1]||'').trim() || null;
+      payload = { title, artist };
+    }
 
     try{
-      await postJSON(EP.suggest(EVENT_SLUG), { title, artist });
+      hideFatalError();
+      await postJSON(EP.suggest(EVENT_SLUG), payload);
       byId('q').value='';
+      state.acSelected = null;
       hideAC();
       await refreshQueue();
       selectTab('queue');
     }catch(err){
       console.error(err);
-      showFatalError('Error', 'Suggest failed');
+      const status = err?.status ?? 0;
+      if (status === 401 || status === 403) showFatalError('Not authorized', 'Open via Telegram WebApp.', 0);
+      else if (status === 0 || status === 502 || status === 504) showFatalError('Service temporarily unavailable', 'Try again in a moment.');
+      else showFatalError('Error', 'Suggest failed');
     }
   });
 
@@ -769,6 +870,8 @@
   // ================== TELEGRAM AUTH ==================
   async function authViaTelegram(){
     const tg = window.Telegram?.WebApp;
+
+    // якщо не в Telegram — просто не намагаємось
     if(!tg || !tg.initDataUnsafe?.user) return null;
 
     try{
@@ -780,6 +883,7 @@
       renderUser();
       return payload;
     }catch(e){
+      // fallback до даних TG, але без токена (protected endpoints все одно дадуть 401)
       const u = tg.initDataUnsafe.user;
       state.user = { tg_id: u?.id, tg_username: u?.username, img: u?.photo_url };
       renderUser();
@@ -827,26 +931,24 @@
     ws.onclose = ()=> setTimeout(connectWS, 1500);
   }
 
-  // ================== AUTOCOMPLETE placeholder ==================
-  const acBox = byId('acList');
-  function hideAC(){ acBox.classList.add('hidden'); acBox.innerHTML=''; }
-
   // ================== INIT ==================
   async function init(){
-    // first: slug check
     if(!EVENT_SLUG){
       location.replace('/404');
       return;
     }
 
-    // TG UI tweaks
+    hideFatalError();
+
     const isInTG = !!window.Telegram?.WebApp?.initData;
     if(isInTG){
       byId('openTG').classList.add('hidden');
       try { window.Telegram.WebApp.expand(); } catch{}
+    } else {
+      // якщо не Telegram — покажемо лінк (він вже є в профілі)
+      // і просто будемо чесно казати "Not authorized" на suggest/vote
     }
 
-    // ✅ no default now playing: keep Loading… until event fetch finishes
     setNowPlaying(null);
 
     await authViaTelegram();
