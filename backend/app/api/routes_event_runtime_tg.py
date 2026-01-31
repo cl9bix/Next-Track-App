@@ -120,7 +120,6 @@ async def suggest(
 ):
     event_id = await resolve_event_id(club_slug, db)
 
-    # автоматично стартуємо івент
     await start_event_if_needed(event_id)
 
     # стабільний track_id
