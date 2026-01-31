@@ -10,7 +10,7 @@ from app.services.live_bus import bus
 
 from app.models.session import async_session as async_session_maker
 
-from app.crud.events import get_latest_event_by_club_slug
+from app.crud.events_crud import get_latest_event_by_club_slug
 
 
 router = APIRouter()
