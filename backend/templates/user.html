@@ -478,23 +478,49 @@
   }
 
   // ================== DATA ==================
-  async function refreshEvent(){
-    try{
-      const data = await getJSON(EP.event(EVENT_SLUG));
-      state.event = data;
-      renderEventHeader();
+ async function refreshEvent(){
+  try{
+    const data = await getJSON(EP.event(EVENT_SLUG));
+    state.event = data;
+    renderEventHeader();
 
-      const st = data?.state || {};
-      state.votingOpen = (st.voting_open === "1" || st.voting_open === 1 || st.voting_open === true);
-      state.voteClosesAt = Number(st.vote_closes_at || 0);
-      state.trackEndsAt = Number(st.track_ends_at || 0);
+    const st = data?.state || {};
+    state.votingOpen = (st.voting_open === "1" || st.voting_open === 1 || st.voting_open === true);
+    state.voteClosesAt = Number(st.vote_closes_at || 0);
+    state.trackEndsAt = Number(st.track_ends_at || 0);
 
-      updateNowTimer();
-    }catch(e){
-      location.replace('/405');
-      throw e;
+    updateNowTimer();
+    return data;
+  } catch (e) {
+    console.error('[refreshEvent] failed:', e);
+
+    // якщо getJSON кидає помилку з status (часто так роблять)
+    const status = e?.status || e?.response?.status;
+
+    // 404 — реально не існує івент
+    if (status === 404) {
+      // якщо у тебе є сторінка 404 в фронті
+      location.replace('/404');
+      return null; // важливо: НЕ throw
     }
+
+    // інші помилки (мережа/502/timeout) — можна показати тост/плашку
+    showFatalError('Service temporarily unavailable. Try again.');
+    return null;
   }
+}
+
+// простий UI-хелпер (можеш під свій дизайн)
+function showFatalError(msg){
+  const el = document.getElementById('fatalError');
+  if(el){
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  } else {
+    alert(msg);
+  }
+}
+
 
   async function refreshQueue(){
     try{
