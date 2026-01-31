@@ -491,7 +491,7 @@
 
       updateNowTimer();
     }catch(e){
-      location.replace('/404');
+      location.replace('/405');
       throw e;
     }
   }
@@ -503,7 +503,7 @@
       renderQueue();
       renderMine();
     }catch(e){
-      if(String(e.message) === '404') location.replace('/404');
+      if(String(e.message) === '404') location.replace('/406');
     }
   }
 
