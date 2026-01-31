@@ -1,343 +1,225 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import time
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import asdict, dataclass
+from typing import Any, Dict, List, Optional
 
 from app.core.redis_client import redis_client
-from app.services.event_keys import k_state, k_queue, k_score, k_voted, k_candidates
-from app.services.live_bus import publish_event  # у тебе вже є
+from app.services.event_keys import (
+    k_queue_items,
+    k_queue_order,
+    k_votes,
+    k_user_votes,
+    k_state,
+)
 
 
-DEFAULT_TRACK_SECONDS = 180
-VOTE_CLOSE_BEFORE_SECONDS = 30
-STATE_TTL_SECONDS = 60 * 60 * 12  # 12 год, щоб не висіло вічно
+# ==========================
+# Models
+# ==========================
 
-
-@dataclass(frozen=True)
+@dataclass
 class Track:
-    """
-    Трек не зберігаємо в БД — лише в Redis в JSON.
-    track_id — унікальний (можеш брати provider:id, типу "deezer:123").
-    """
     track_id: str
     title: str
-    artist: str | None = None
-    cover_url: str | None = None
-    duration_sec: int | None = None  # якщо нема — дефолт
+    artist: Optional[str] = None
+    cover_url: Optional[str] = None
+    duration_sec: Optional[int] = None
+
+    # meta (optional but useful)
+    suggested_by: Optional[int] = None
+    created_at: int = 0
+
+    def to_json(self) -> str:
+        d = asdict(self)
+        d["track_id"] = str(d.get("track_id") or "").strip()
+        d["title"] = str(d.get("title") or "").strip()
+        d["artist"] = (d.get("artist") or None)
+        d["cover_url"] = (d.get("cover_url") or None)
+        d["duration_sec"] = d.get("duration_sec")
+        d["suggested_by"] = d.get("suggested_by")
+        d["created_at"] = int(d.get("created_at") or 0)
+        return json.dumps(d, ensure_ascii=False, separators=(",", ":"))
+
+    @staticmethod
+    def from_json(s: str) -> "Track":
+        obj = json.loads(s)
+        return Track(
+            track_id=str(obj.get("track_id") or ""),
+            title=str(obj.get("title") or ""),
+            artist=obj.get("artist") or None,
+            cover_url=obj.get("cover_url") or None,
+            duration_sec=obj.get("duration_sec") if obj.get("duration_sec") is not None else None,
+            suggested_by=obj.get("telegram_id") if obj.get("telegram_id") is not None else None,
+            created_at=int(obj.get("created_at") or 0),
+        )
 
 
-def _now() -> int:
-    return int(time.time())
-
-
-def _track_key(track_id: str) -> str:
-    return f"track:{track_id}"
-
-
-async def _store_track(track: Track, ttl: int) -> None:
-    # зберігаємо payload треку лише на час життя раунду/івенту
-    payload = {
-        "track_id": track.track_id,
-        "title": track.title,
-        "artist": track.artist,
-        "cover_url": track.cover_url,
-        "duration_sec": track.duration_sec,
-    }
-    await redis_client.set(_track_key(track.track_id), json.dumps(payload, ensure_ascii=False), ex=ttl)
-
-
-async def _load_track(track_id: str) -> Optional[dict]:
-    raw = await redis_client.get(_track_key(track_id))
-    if not raw:
-        return None
-    try:
-        return json.loads(raw)
-    except Exception:
-        return {"track_id": track_id}
-
-
-async def enqueue_track(event_id: int, track: Track) -> None:
-    """
-    Додає трек в кінець черги + кешує його дані в Redis на TTL.
-    """
-    # TTL прив’яжемо до івенту (state TTL), щоб все само чистилось
-    ttl = STATE_TTL_SECONDS
-    await _store_track(track, ttl=ttl)
-
-    await redis_client.rpush(k_queue(event_id), track.track_id)
-    await redis_client.expire(k_queue(event_id), ttl)
-    await redis_client.expire(k_score(event_id), ttl)
-
-    await publish_event(event_id, {"type": "queue_added", "track_id": track.track_id})
-
-
-async def get_queue_snapshot(event_id: int, limit: int = 10) -> List[dict]:
-    ids = await redis_client.lrange(k_queue(event_id), 0, max(0, limit - 1))
-    out: List[dict] = []
-    for tid in ids:
-        t = await _load_track(tid)
-        out.append(t or {"track_id": tid})
-    return out
-
+# ==========================
+# Runtime helpers
+# ==========================
 
 async def start_event_if_needed(event_id: int) -> None:
     """
-    Якщо івент не live — робимо live і стартуємо перший трек (якщо є).
+    Мінімальна заглушка: якщо тобі треба ставити state в Redis — тримай тут.
+    У тебе вже є k_state і state ручки, тому не ламаємо існуюче.
     """
-    st = await redis_client.hgetall(k_state(event_id))
-    if st and st.get("status") in ("live", "ended"):
-        return
-
-    now = _now()
-    await redis_client.hset(
-        k_state(event_id),
-        mapping={
-            "status": "live",
-            "current_track_id": "",
-            "track_started_at": "0",
-            "track_ends_at": "0",
-            "vote_closes_at": "0",
-            "voting_open": "0",
-            "updated_at": str(now),
-        },
-    )
-    await redis_client.expire(k_state(event_id), STATE_TTL_SECONDS)
-
-    await publish_event(event_id, {"type": "event_live"})
-
-    # одразу пробуємо перейти на трек
-    await advance_to_next_track(event_id)
+    st_key = k_state(event_id)
+    st = await redis_client.hgetall(st_key)
+    if not st:
+        await redis_client.hset(st_key, mapping={"voting_open": "1"})
 
 
 async def end_event(event_id: int) -> None:
-    await redis_client.hset(k_state(event_id), mapping={"status": "ended", "voting_open": "0", "updated_at": str(_now())})
-    await publish_event(event_id, {"type": "event_ended"})
+    await redis_client.hset(k_state(event_id), mapping={"voting_open": "0"})
 
 
-async def _reset_voting(event_id: int, ttl: int) -> None:
-    # чистимо кандидатів та score для поточного раунду
-    await redis_client.delete(k_candidates(event_id))
-    await redis_client.delete(k_score(event_id))
-    await redis_client.expire(k_candidates(event_id), ttl)
-    await redis_client.expire(k_score(event_id), ttl)
+# ==========================
+# Queue
+# ==========================
 
-
-async def _prepare_candidates(event_id: int, top_n: int = 4) -> List[str]:
+async def enqueue_track(event_id: int, track: Track) -> None:
     """
-    Кандидати — перші N треків з queue. Голосування йде тільки по ним.
+    Зберігаємо Track в Redis так, щоб cover_url НЕ губився:
+      - items hash: track_id -> json(Track)
+      - order list: rpush track_id (щоб мати порядок)
+      - votes hash: init 0 (якщо нема)
     """
-    ids = await redis_client.lrange(k_queue(event_id), 0, top_n - 1)
-    if ids:
-        await redis_client.delete(k_candidates(event_id))
-        await redis_client.rpush(k_candidates(event_id), *ids)
-        await redis_client.expire(k_candidates(event_id), STATE_TTL_SECONDS)
-    return ids
+    if not track.track_id or not track.title:
+        raise ValueError("track_id and title are required")
+
+    # created_at
+    if not track.created_at:
+        track.created_at = int(time.time())
+
+    # ✅ головне — не втрачаємо cover_url
+    payload = track.to_json()
+
+    items_key = k_queue_items(event_id)
+    order_key = k_queue_order(event_id)
+    votes_key = k_votes(event_id)
+
+    # дедуп: якщо вже є такий track_id — оновлюємо items, але НЕ дублюємо order
+    exists = await redis_client.hexists(items_key, track.track_id)
+    await redis_client.hset(items_key, track.track_id, payload)
+
+    if not exists:
+        await redis_client.rpush(order_key, track.track_id)
+
+    # votes init
+    if not await redis_client.hexists(votes_key, track.track_id):
+        await redis_client.hset(votes_key, track.track_id, 0)
+
+    # (опціонально) обмеження розміру черги
+    # зберігаємо останні 200
+    await _trim_queue(event_id, max_len=200)
 
 
-async def open_voting_for_candidates(event_id: int, candidates: List[str], close_at: int) -> None:
-    await redis_client.hset(
-        k_state(event_id),
-        mapping={
-            "voting_open": "1",
-            "vote_closes_at": str(close_at),
-            "updated_at": str(_now()),
-        },
-    )
-    payload = {"type": "voting_open", "vote_closes_at": close_at, "candidate_ids": candidates}
-    await publish_event(event_id, payload)
-
-
-async def close_voting(event_id: int) -> None:
-    await redis_client.hset(k_state(event_id), mapping={"voting_open": "0", "updated_at": str(_now())})
-    await publish_event(event_id, {"type": "voting_closed"})
-
-
-async def pick_winner(event_id: int, candidates: List[str]) -> Optional[str]:
+async def _trim_queue(event_id: int, max_len: int = 200) -> None:
     """
-    Переможець = max votes. Якщо ніхто не голосував — беремо першого кандидата.
+    Легка підчистка: якщо order list розрослась — обрізаємо зліва.
+    І паралельно чистимо items/votes для видалених id.
     """
-    if not candidates:
-        return None
+    order_key = k_queue_order(event_id)
+    items_key = k_queue_items(event_id)
+    votes_key = k_votes(event_id)
 
-    scores = await redis_client.hmget(k_score(event_id), candidates)
-    best_id = candidates[0]
-    best_score = -1
+    length = await redis_client.llen(order_key)
+    if length <= max_len:
+        return
 
-    for tid, raw in zip(candidates, scores):
+    # скільки видаляти
+    to_remove = length - max_len
+    removed_ids: List[str] = []
+    for _ in range(to_remove):
+        tid = await redis_client.lpop(order_key)
+        if tid:
+            removed_ids.append(tid)
+
+    if removed_ids:
+        await redis_client.hdel(items_key, *removed_ids)
+        await redis_client.hdel(votes_key, *removed_ids)
+
+
+async def get_queue_snapshot(event_id: int, limit: int = 10) -> List[Dict[str, Any]]:
+    """
+    Повертаємо список треків (як ти очікуєш у /queue),
+    включно з cover_url, duration_sec.
+    + додаємо votes (якщо є).
+    """
+    limit = max(1, min(int(limit or 10), 200))
+
+    order_key = k_queue_order(event_id)
+    items_key = k_queue_items(event_id)
+    votes_key = k_votes(event_id)
+
+    # беремо останні (або перші) — в тебе на UI зазвичай "up next" = перші.
+    # залишаю як "перші N" (0..limit-1). Якщо хочеш навпаки — скажеш.
+    ids = await redis_client.lrange(order_key, 0, limit - 1)
+    if not ids:
+        return []
+
+    raw_items = await redis_client.hmget(items_key, ids)
+    raw_votes = await redis_client.hmget(votes_key, ids)
+
+    out: List[Dict[str, Any]] = []
+    for tid, js, v in zip(ids, raw_items, raw_votes):
+        if not js:
+            continue
+
         try:
-            v = int(raw or 0)
+            t = Track.from_json(js)
         except Exception:
-            v = 0
-        if v > best_score:
-            best_score = v
-            best_id = tid
+            continue
 
-    return best_id
-
-
-async def advance_to_next_track(event_id: int) -> None:
-    """
-    Розумна логіка:
-    - беремо candidates (перші 4 з черги)
-    - відкриваємо голосування (якщо треків >= 2)
-    - коли час — вибираємо переможця і робимо його current
-    """
-    # якщо event ended — нічого не робимо
-    st = await redis_client.hgetall(k_state(event_id))
-    if st.get("status") == "ended":
-        return
-
-    # якщо черга пуста — просто повідомляємо
-    qlen = await redis_client.llen(k_queue(event_id))
-    if qlen <= 0:
-        await redis_client.hset(k_state(event_id), mapping={"current_track_id": "", "updated_at": str(_now())})
-        await publish_event(event_id, {"type": "queue_empty"})
-        return
-
-    candidates = await _prepare_candidates(event_id, top_n=4)
-
-    # якщо в черзі 1 трек — ставимо його автоматом (без голосування)
-    if len(candidates) == 1:
-        winner_id = candidates[0]
-        await _set_current_track(event_id, winner_id, reason="single_track")
-        return
-
-    # якщо >= 2 — відкриваємо голосування на кандидати
-    # голосування закриваємо через vote_close_seconds, а трек стартує коли голосування закрилось
-    now = _now()
-    # мінімальний час голосування, щоб люди встигли (наприклад 20 секунд)
-    close_at = now + 20
-    await _reset_voting(event_id, ttl=STATE_TTL_SECONDS)
-    await open_voting_for_candidates(event_id, candidates, close_at=close_at)
-
-
-async def _set_current_track(event_id: int, track_id: str, reason: str) -> None:
-    t = await _load_track(track_id) or {"track_id": track_id}
-    dur = int(t.get("duration_sec") or 0)
-    if dur <= 0:
-        dur = DEFAULT_TRACK_SECONDS
-
-    now = _now()
-    ends_at = now + dur
-    vote_closes_at = max(now, ends_at - VOTE_CLOSE_BEFORE_SECONDS)
-
-    await redis_client.hset(
-        k_state(event_id),
-        mapping={
-            "current_track_id": track_id,
-            "track_started_at": str(now),
-            "track_ends_at": str(ends_at),
-            "vote_closes_at": str(vote_closes_at),
-            "voting_open": "0",
-            "updated_at": str(now),
-        },
-    )
-    await redis_client.expire(k_state(event_id), STATE_TTL_SECONDS)
-
-    # IMPORTANT: переміщаємо winner на початок списку (він стає "current"),
-    # а потім коли трек завершиться — просто LPOP.
-    # Тут зробимо так: winner має бути першим елементом queue.
-    # Для цього:
-    # - видаляємо winner з queue (LREM)
-    # - додаємо його на початок (LPUSH)
-    await redis_client.lrem(k_queue(event_id), 0, track_id)
-    await redis_client.lpush(k_queue(event_id), track_id)
-
-    await publish_event(event_id, {"type": "track_started", "track": t, "ends_at": ends_at, "reason": reason})
-
-
-async def confirm_winner_and_start_track(event_id: int) -> Optional[dict]:
-    """
-    Викликається коли голосування закрилось: обираємо winner -> ставимо current.
-    """
-    candidates = await redis_client.lrange(k_candidates(event_id), 0, -1)
-    if not candidates:
-        # fallback: беремо перший з черги
-        first = await redis_client.lindex(k_queue(event_id), 0)
-        if not first:
-            return None
-        await _set_current_track(event_id, first, reason="fallback_first")
-        return await _load_track(first)
-
-    winner_id = await pick_winner(event_id, candidates)
-    if not winner_id:
-        return None
-
-    await _set_current_track(event_id, winner_id, reason="voted_winner")
-    return await _load_track(winner_id)
-
-
-async def vote(event_id: int, telegram_id: int, track_id: str) -> None:
-    """
-    1 голос на раунд (простий варіант): ключ voted:{telegram_id} існує => вже голосував.
-    """
-    st = await redis_client.hgetall(k_state(event_id))
-    if st.get("status") != "live":
-        raise ValueError("Event is not live")
-    if st.get("voting_open") != "1":
-        raise ValueError("Voting is closed")
-
-    # перевіряємо що track_id серед кандидатів
-    candidates = await redis_client.lrange(k_candidates(event_id), 0, -1)
-    if track_id not in candidates:
-        raise ValueError("Track is not votable")
-
-    voted_key = k_voted(event_id, telegram_id)
-    ok = await redis_client.set(voted_key, "1", nx=True, ex=STATE_TTL_SECONDS)
-    if not ok:
-        raise ValueError("Already voted in this round")
-
-    await redis_client.hincrby(k_score(event_id), track_id, 1)
-
-    # для UI шлемо оновлення лічильника
-    new_score = await redis_client.hget(k_score(event_id), track_id)
-    await publish_event(event_id, {"type": "vote", "track_id": track_id, "votes": int(new_score or 0)})
-
-
-async def tick_event(event_id: int) -> None:
-    """
-    Один "тик": перевіряє таймінги та робить переходи.
-    """
-    st = await redis_client.hgetall(k_state(event_id))
-    if not st:
-        return
-    if st.get("status") != "live":
-        return
-
-    now = _now()
-    voting_open = st.get("voting_open") == "1"
-    vote_closes_at = int(st.get("vote_closes_at") or 0)
-    ends_at = int(st.get("track_ends_at") or 0)
-    current_track_id = st.get("current_track_id") or ""
-
-    # 1) Якщо є голосування і воно має закритись
-    if voting_open and vote_closes_at and now >= vote_closes_at:
-        await close_voting(event_id)
-        await confirm_winner_and_start_track(event_id)
-        return
-
-    # 2) Якщо трек грає і закінчився — прибираємо його і зсуваємо чергу, потім відкриваємо наступне голосування
-    if (not voting_open) and current_track_id and ends_at and now >= ends_at:
-        # видаляємо зі списку (він стоїть першим)
-        await redis_client.lpop(k_queue(event_id))
-        await publish_event(event_id, {"type": "track_finished", "track_id": current_track_id})
-
-        # переходимо до наступного раунду
-        await advance_to_next_track(event_id)
-        return
-
-
-async def ticker_loop(event_id: int, stop_event: asyncio.Event) -> None:
-    """
-    Background loop: запускай на старті івенту (або при підключенні DJ).
-    """
-    while not stop_event.is_set():
+        votes = 0
         try:
-            await tick_event(event_id)
-        except Exception as e:
-            # не валимо цикл
-            await publish_event(event_id, {"type": "ticker_error", "error": str(e)})
-        await asyncio.sleep(1.0)
+            votes = int(v or 0)
+        except Exception:
+            votes = 0
+
+        out.append({
+            "track_id": t.track_id or tid,
+            "title": t.title,
+            "artist": t.artist,
+            "cover_url": t.cover_url,          # ✅ ТУТ БУДЕ КАРТИНКА
+            "duration_sec": t.duration_sec,
+            "votes": votes,
+            "suggested_by": t.suggested_by,
+            "created_at": t.created_at,
+        })
+
+    return out
+
+
+# ==========================
+# Voting
+# ==========================
+
+async def vote(event_id: int, tg_id: int, track_id: str) -> None:
+    """
+    Мінімальна логіка голосу:
+    - юзер може голосувати 1 раз за трек
+    - підвищуємо votes у hash
+    """
+    track_id = (track_id or "").strip()
+    if not track_id:
+        raise ValueError("track_id is required")
+
+    items_key = k_queue_items(event_id)
+    votes_key = k_votes(event_id)
+    user_key = k_user_votes(event_id, tg_id)
+
+    # трек має існувати
+    if not await redis_client.hexists(items_key, track_id):
+        raise ValueError("Track not found in queue")
+
+    # вже голосував?
+    if await redis_client.sismember(user_key, track_id):
+        raise ValueError("Already voted")
+
+    pipe = redis_client.pipeline(transaction=True)
+    pipe.sadd(user_key, track_id)
+    pipe.hincrby(votes_key, track_id, 1)
+    await pipe.execute()

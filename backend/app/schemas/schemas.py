@@ -133,3 +133,11 @@ class ClubResponse(ClubCreate):
     id: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SuggestIn(BaseModel):
+    track_id: str | None = None
+    title: str
+    artist: str | None = None
+    cover_url: str | None = None
+    duration_sec: int | None = None
