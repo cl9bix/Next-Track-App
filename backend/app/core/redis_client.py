@@ -5,7 +5,6 @@ from typing import Optional
 
 import redis.asyncio as redis
 
-
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 
 _redis: Optional[redis.Redis] = None
@@ -20,6 +19,9 @@ def get_redis() -> redis.Redis:
             decode_responses=True,
         )
     return _redis
+
+
+redis_client: redis.Redis = get_redis()
 
 
 async def close_redis() -> None:
