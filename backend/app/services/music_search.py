@@ -92,7 +92,6 @@ def _dedupe_key(t: dict) -> Tuple[str, str]:
 
 # ---------- Providers ----------
 async def search_deezer(q: str, limit: int, lang: Optional[str]) -> List[dict]:
-    # https://developers.deezer.com/api/search
     url = "https://api.deezer.com/search"
     params = {"q": q, "limit": max(1, min(limit, 50))}
     headers = {}
@@ -112,7 +111,6 @@ async def search_deezer(q: str, limit: int, lang: Optional[str]) -> List[dict]:
     return out
 
 async def search_itunes(q: str, limit: int, lang: Optional[str]) -> List[dict]:
-    # https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/
     url = "https://itunes.apple.com/search"
     params = {"term": q, "entity": "song", "limit": max(1, min(limit, 50))}
     headers = {}

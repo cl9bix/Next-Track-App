@@ -319,6 +319,7 @@
     votingOpen: false,
     voteClosesAt: 0,
     trackEndsAt: 0,
+
     acSelected: null,
     isInTG: false,
   };
@@ -469,6 +470,15 @@
     return fallback;
   }
 
+  function escapeHtml(s){
+    return String(s ?? '')
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#39;");
+  }
+
   function renderEventHeader(){
     const ev = state.event || {};
     const clubName = pickFirst(ev, ['club.name','club.title','club_name','clubTitle','clubName'], EVENT_SLUG ? EVENT_SLUG.toUpperCase() : '—');
@@ -513,35 +523,35 @@
     }
   }
 
-  // ✅ NEW: detect "my suggested track" and return avatar url
-  function getSuggestAvatar(track){
-    const userAvatar = (state.user?.img || '').trim();
-    if(!userAvatar) return '';
+  // ✅ NEW: resolve who suggested (best effort)
+  function getSuggestedByUsername(t){
+    // 1) if backend provides something
+    const raw =
+      t?.suggested_by_username ||
+      t?.suggested_by_user ||
+      t?.suggested_by ||
+      t?.tg_username ||
+      t?.username ||
+      t?.created_by_username ||
+      t?.author_username ||
+      t?.user?.username ||
+      t?.user?.tg_username ||
+      '';
 
+    if (typeof raw === 'string' && raw.trim()){
+      const u = raw.trim();
+      return u.startsWith('@') ? u : '@' + u;
+    }
+
+    // 2) if this is "my" suggestion by your stable id format: user:{tg_id}:...
     const myId = state.user?.tg_id;
-    if(!myId) return '';
-
-    // 1) backend may return suggested_by fields
-    const suggestedBy =
-      track?.suggested_by?.tg_id ??
-      track?.suggested_by ??
-      track?.tg_id ??
-      track?.user_id ??
-      track?.created_by ??
-      track?.author_id ??
-      null;
-
-    if (suggestedBy != null && String(suggestedBy) === String(myId)) {
-      return userAvatar;
+    const myU  = state.user?.tg_username;
+    const trackId = String(t?.track_id || t?.id || '');
+    if (myId && myU && trackId.startsWith(`user:${myId}:`)){
+      return myU.startsWith('@') ? myU : '@' + myU;
     }
 
-    // 2) fallback: your stable track_id format: "user:{tg_id}:{title}"
-    const trackId = String(track?.track_id || track?.id || '');
-    if (trackId.startsWith(`user:${myId}:`)) {
-      return userAvatar;
-    }
-
-    return '';
+    return '@guest';
   }
 
   function renderQueue(){
@@ -561,26 +571,30 @@
       const id = t.track_id || t.id;
       const voted = state.myVotes.has(id);
 
-      const title = (t.title || t.name || 'Untitled');
-      const artist = (t.artist || '');
+      const title = escapeHtml(t.title || t.name || 'Untitled');
+      const artist = escapeHtml(t.artist || '');
 
-      // ✅ ONLY CHANGE: art uses user avatar for "my suggested"
-      const myAvatar = getSuggestAvatar(t);
-      const artUrl = (myAvatar || t.cover_url || '').trim();
+      // ✅ REQUIRED: always use song cover (not TG avatar)
+      const cover = String(t.cover_url || '').trim();
+      const artUrl = cover;
 
       const votes = Number(t.votes || 0);
       const percent = Math.max(0, Math.min(100, votes));
 
+      const who = escapeHtml(getSuggestedByUsername(t));
+      const existingNote = escapeHtml(t.note || '');
+      const noteLine = `виставлено ${who}` + (existingNote ? ` • ${existingNote}` : '');
+
       row.innerHTML = `
-        <div class="art" style="${artUrl ? `background-image:url('${String(artUrl).replaceAll("'","%27")}')` : ''}" aria-hidden="true"></div>
+        <div class="art" style="${artUrl ? `background-image:url('${artUrl.replaceAll("'","%27")}')` : ''}" aria-hidden="true"></div>
         <div class="body">
           <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
-          <div class="note muted">${t.note || ''}</div>
+          <div class="note muted">${noteLine}</div>
           <div class="bar" style="--p:${percent}%; --t:0%">
             <span class="v"></span><span class="t"></span>
           </div>
         </div>
-        <button class="vote ${voted?'voted':''}" data-id="${id}" ${(!state.votingOpen || voted) ? 'disabled' : ''}>${voted?'Voted':'Vote'}</button>
+        <button class="vote ${voted?'voted':''}" data-id="${escapeHtml(id)}" ${(!state.votingOpen || voted) ? 'disabled' : ''}>${voted?'Voted':'Vote'}</button>
       `;
       qWrap.appendChild(row);
     }
@@ -626,19 +640,22 @@
     });
 
     const rows = picked.map(t=>{
-      const title = (t.title || t.name || 'Untitled');
-      const artist = (t.artist || '');
+      const title = escapeHtml(t.title || t.name || 'Untitled');
+      const artist = escapeHtml(t.artist || '');
 
-      // ✅ ONLY CHANGE: art uses user avatar for "my suggested"
-      const myAvatar = getSuggestAvatar(t);
-      const artUrl = (myAvatar || t.cover_url || '').trim();
+      // ✅ cover only
+      const artUrl = String(t.cover_url || '').trim();
+
+      const who = escapeHtml(getSuggestedByUsername(t));
+      const existingNote = escapeHtml(t.note || '');
+      const noteLine = `виставлено ${who}` + (existingNote ? ` • ${existingNote}` : '');
 
       return `
         <div class="row">
-          <div class="art" style="${artUrl ? `background-image:url('${String(artUrl).replaceAll("'","%27")}')` : ''}"></div>
+          <div class="art" style="${artUrl ? `background-image:url('${artUrl.replaceAll("'","%27")}')` : ''}"></div>
           <div class="body">
             <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
-            <div class="note muted">${t.note||''}</div>
+            <div class="note muted">${noteLine}</div>
             <div class="bar" style="--p:0%; --t:0%"><span class="v"></span><span class="t"></span></div>
           </div>
           <div class="vote voted">Voted</div>
@@ -661,6 +678,7 @@
     byId('nowTimer').textContent = text;
   }
 
+  // ================== AUTOCOMPLETE ==================
   const acBox = byId('acList');
   const qInput = byId('q');
 
@@ -679,15 +697,15 @@
 
     acBox.innerHTML = items.map((it, idx)=>{
       const cover = it.cover_url || '';
-      const title = (it.title || '').replace(/</g,'&lt;');
-      const artist = (it.artist || '').replace(/</g,'&lt;');
-      const album = (it.album || '').replace(/</g,'&lt;');
+      const title = escapeHtml(it.title || '');
+      const artist = escapeHtml(it.artist || '');
+      const album = escapeHtml(it.album || '');
       return `
         <div class="ac-item" data-idx="${idx}">
           <div class="ac-cover" style="${cover ? `background-image:url('${String(cover).replaceAll("'","%27")}')` : ''}"></div>
           <div style="min-width:0">
             <div class="ac-title">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
-            <div class="ac-sub">${album ? album : (it.source || '')}</div>
+            <div class="ac-sub">${album ? album : escapeHtml(it.source || '')}</div>
           </div>
         </div>
       `;
@@ -745,6 +763,7 @@
     hideAC();
   });
 
+  // ================== DATA ==================
   async function refreshEvent(){
     try{
       hideInlineError();
@@ -799,6 +818,7 @@
     }
   }
 
+  // ================== SUGGEST ==================
   byId('add').addEventListener('click', async ()=>{
     const raw = byId('q').value.trim();
     if(!raw) return;
@@ -842,16 +862,19 @@
     }
   });
 
+  // ================== PROFILE / NOTIFS ==================
   const tog = byId('notifs');
   tog.addEventListener('change', ()=>{ localStorage.setItem('nt_user_notifs', tog.checked?'1':'0'); });
   tog.checked = localStorage.getItem('nt_user_notifs')==='1';
 
+  // ================== BOTTOM NAV ==================
   function selectTab(id){
     $('.btab').forEach(b=>b.classList.toggle('active', b.dataset.target===id));
     $('.screen').forEach(s=>s.classList.toggle('active', s.id===id));
   }
   $('.btab').forEach(b=>b.addEventListener('click', ()=>selectTab(b.dataset.target)));
 
+  // ================== TELEGRAM AUTH ==================
   function pickToken(payload){
     if(!payload) return null;
     return (
@@ -902,6 +925,7 @@
     return null;
   }
 
+  // ================== WEBSOCKET ==================
   function connectWS(){
     if(!EVENT_SLUG) return;
 
@@ -941,6 +965,7 @@
     ws.onclose = ()=> setTimeout(connectWS, 1500);
   }
 
+  // ================== INIT ==================
   async function init(){
     if(!EVENT_SLUG){
       location.replace('/404');
