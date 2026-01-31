@@ -482,7 +482,7 @@
   // ✅ NEW: pick cover from many possible fields (because /queue may differ from /search)
   function pickCoverUrl(t){
     const url =
-      (t && (t.cover_url || t.coverUrl || t.cover || t.artwork || t.artwork_url)) ||
+      (t && (t.cover_url || t.cover_url || t.cover || t.artwork || t.artwork_url)) ||
       (t && t.album && (t.album.cover_xl || t.album.cover_big || t.album.cover_medium || t.album.cover)) ||
       (t && t.deezer && t.deezer.cover_url) ||
       (t && t.itunes && (t.itunes.artworkUrl100 || t.itunes.artworkUrl60)) ||
