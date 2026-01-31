@@ -8,22 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.live_bus import bus
 
-# ============================================================
-# IMPORTANT:
-# Replace this import with YOUR real sessionmaker path.
-#
-# Search in your project for: "async_session_maker" or "AsyncSessionLocal"
-# Example locations:
-#   - from app.database import async_session_maker
-#   - from app.db import async_session_maker
-#   - from app.db.session import async_session_maker
-#   - from app.core.db import async_session_maker
-# ============================================================
+from app.models.session import async_session as async_session_maker
 
-from app.database import async_session_maker  # <-- CHANGE THIS ONE LINE
-
-# Same for your function (you already have it)
-from app.crud.events import get_latest_event_by_club_slug  # <-- if your path differs, change it
+from app.crud.events import get_latest_event_by_club_slug
 
 
 router = APIRouter()
@@ -31,21 +18,23 @@ router = APIRouter()
 
 async def _resolve_event_id_by_club_slug(db: AsyncSession, club_slug: str) -> Optional[int]:
     ev = await get_latest_event_by_club_slug(db, club_slug)
-    # ev is likely pydantic (EventResponse) or ORM model. Support both.
+
     v = getattr(ev, "id", None) or getattr(ev, "event_id", None)
     if isinstance(v, int) and v > 0:
         return v
+
     if isinstance(ev, dict):
         v = ev.get("id") or ev.get("event_id")
         if isinstance(v, int) and v > 0:
             return v
+
     return None
 
 
 @router.websocket("/ws/events/{club_slug}")
 async def ws_event(websocket: WebSocket, club_slug: str):
     """
-    WS connects by club_slug; backend resolves latest event_id and subscribes to bus topic event:{event_id}
+    Client connects using club_slug, backend resolves latest event_id and subscribes to bus topic event:{event_id}
     """
     await websocket.accept()
 
