@@ -84,14 +84,9 @@ async def get_event_for_users(
         raise HTTPException(status_code=404, detail="Event not found")
 
     print("ALLES IM ORDNUNG")
-    return templates.TemplateResponse(
-        "user.html",
-        {
-            "request": request,
-            "event": event,
-            "club_slug":club_slug,
-        },
-    )
+    # return templates.TemplateResponse(
+    #     "user.html",
+    return  {"event": event, "club_slug":club_slug}
 
 @router.get("/{club_slug}/state")
 async def get_state(
