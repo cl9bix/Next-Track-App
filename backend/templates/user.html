@@ -187,7 +187,6 @@
 
   <main class="views">
     <div class="container">
-
       <div id="inlineError" class="inline-banner hidden" role="alert" aria-live="assertive">
         <div>
           <b id="inlineTitle">Error</b>
@@ -287,7 +286,6 @@
 
   function parseEventSlug(){
     const url = new URL(window.location.href);
-
     const direct = (url.searchParams.get('event') || '').trim();
     if (direct) return direct;
 
@@ -319,7 +317,6 @@
     votingOpen: false,
     voteClosesAt: 0,
     trackEndsAt: 0,
-
     acSelected: null,
     isInTG: false,
   };
@@ -330,19 +327,16 @@
   }
 
   let inlineTimer = null;
-
   function showInlineError(title, msg, autoHideMs=2800){
     const box = byId('inlineError');
     byId('inlineTitle').textContent = title || 'Error';
     byId('inlineMsg').textContent = msg || '';
     box.classList.remove('hidden');
-
     if (inlineTimer) clearTimeout(inlineTimer);
     if (autoHideMs && autoHideMs > 0){
       inlineTimer = setTimeout(()=> hideInlineError(), autoHideMs);
     }
   }
-
   function hideInlineError(){
     const box = byId('inlineError');
     box.classList.add('hidden');
@@ -350,7 +344,6 @@
     byId('inlineMsg').textContent = '';
     if (inlineTimer) { clearTimeout(inlineTimer); inlineTimer = null; }
   }
-
   byId('inlineClose').addEventListener('click', hideInlineError);
 
   class HttpError extends Error {
@@ -479,10 +472,10 @@
       .replaceAll("'","&#39;");
   }
 
-  // ✅ NEW: pick cover from many possible fields (because /queue may differ from /search)
+  // ✅ FIXED: correct pick cover_url (your backend response matches this exactly)
   function pickCoverUrl(t){
     const url =
-      (t && (t.cover_url || t.cover_url || t.cover || t.artwork || t.artwork_url)) ||
+      (t && (t.cover_url || t.coverUrl || t.cover || t.artwork || t.artwork_url)) ||
       (t && t.album && (t.album.cover_xl || t.album.cover_big || t.album.cover_medium || t.album.cover)) ||
       (t && t.deezer && t.deezer.cover_url) ||
       (t && t.itunes && (t.itunes.artworkUrl100 || t.itunes.artworkUrl60)) ||
@@ -490,17 +483,24 @@
     return String(url || '').trim();
   }
 
-  // ✅ NEW: safe URL for inline CSS
+  // ✅ Make safe for CSS url('...') and keep it readable
   function cssUrl(u){
     u = String(u || '').trim();
     if(!u) return '';
-    try{
-      // keep ://, encode spaces, etc.
-      const safe = encodeURI(u).replaceAll('"','%22');
-      return safe;
-    }catch(_){
-      return u.replaceAll('"','%22');
-    }
+    try { return encodeURI(u).replaceAll("'","%27"); } catch { return u.replaceAll("'","%27"); }
+  }
+
+  // ✅ Preload image to avoid “url set but not rendered” / network glitch
+  async function ensureImage(url){
+    url = String(url || '').trim();
+    if(!url) return false;
+    return await new Promise((resolve)=>{
+      const img = new Image();
+      img.referrerPolicy = 'no-referrer';
+      img.onload = ()=>resolve(true);
+      img.onerror = ()=>resolve(false);
+      img.src = url;
+    });
   }
 
   function renderEventHeader(){
@@ -528,24 +528,9 @@
 
     const cover = pickCoverUrl(track);
     const safe = cssUrl(cover);
-    if(safe) byId('nowCover').style.backgroundImage = `url("${safe}")`;
-    else byId('nowCover').style.backgroundImage = '';
+    byId('nowCover').style.backgroundImage = safe ? `url('${safe}')` : '';
 
     live.classList.remove('hidden');
-  }
-
-  function confettiAt(el){
-    const box = el.closest('.row');
-    if(!box) return;
-    let w = box.querySelector('.confetti');
-    if(!w){ w = document.createElement('div'); w.className='confetti'; box.appendChild(w); }
-    for(let i=0;i<10;i++){
-      const p = document.createElement('i');
-      p.style.left = (10+Math.random()*80)+'%';
-      p.style.top = (0+Math.random()*6)+'%';
-      w.appendChild(p);
-      setTimeout(()=>p.remove(), 750);
-    }
   }
 
   function getSuggestedByUsername(t){
@@ -566,6 +551,7 @@
       return u.startsWith('@') ? u : '@' + u;
     }
 
+    // fallback if you later encode user in track_id like user:<id>:...
     const myId = state.user?.tg_id;
     const myU  = state.user?.tg_username;
     const trackId = String(t?.track_id || t?.id || '');
@@ -576,7 +562,21 @@
     return '@guest';
   }
 
-  function renderQueue(){
+  function confettiAt(el){
+    const box = el.closest('.row');
+    if(!box) return;
+    let w = box.querySelector('.confetti');
+    if(!w){ w = document.createElement('div'); w.className='confetti'; box.appendChild(w); }
+    for(let i=0;i<10;i++){
+      const p = document.createElement('i');
+      p.style.left = (10+Math.random()*80)+'%';
+      p.style.top = (0+Math.random()*6)+'%';
+      w.appendChild(p);
+      setTimeout(()=>p.remove(), 750);
+    }
+  }
+
+  async function renderQueue(){
     const qWrap = byId('queueList');
     qWrap.innerHTML = '';
 
@@ -586,7 +586,14 @@
       return;
     }
 
-    for(const t of tracks){
+    // ✅ precheck covers (optional, but makes it super reliable)
+    // only for first ~20 items to keep it snappy
+    const checks = tracks.slice(0, 20).map(t => ensureImage(pickCoverUrl(t)));
+    const okFlags = await Promise.all(checks);
+
+    for(let i=0;i<tracks.length;i++){
+      const t = tracks[i];
+
       const row = document.createElement('div');
       row.className = 'row';
 
@@ -596,9 +603,8 @@
       const title = escapeHtml(t.title || t.name || 'Untitled');
       const artist = escapeHtml(t.artist || '');
 
-      // ✅ FIX: take cover from many fields + safe css url
       const cover = pickCoverUrl(t);
-      const artUrl = cssUrl(cover);
+      const artUrl = (i < 20 && okFlags[i] === false) ? '' : cssUrl(cover);
 
       const votes = Number(t.votes || 0);
       const percent = Math.max(0, Math.min(100, votes));
@@ -608,7 +614,7 @@
       const noteLine = `виставлено ${who}` + (existingNote ? ` • ${existingNote}` : '');
 
       row.innerHTML = `
-        <div class="art" style="${artUrl ? `background-image:url(&quot;${artUrl}&quot;)` : ''}" aria-hidden="true"></div>
+        <div class="art" style="${artUrl ? `background-image:url('${artUrl}')` : ''}" aria-hidden="true"></div>
         <div class="body">
           <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
           <div class="note muted">${noteLine}</div>
@@ -662,18 +668,16 @@
     });
 
     const rows = picked.map(t=>{
+      const artUrl = cssUrl(pickCoverUrl(t));
       const title = escapeHtml(t.title || t.name || 'Untitled');
       const artist = escapeHtml(t.artist || '');
-
-      const artUrl = cssUrl(pickCoverUrl(t));
-
       const who = escapeHtml(getSuggestedByUsername(t));
       const existingNote = escapeHtml(t.note || '');
       const noteLine = `виставлено ${who}` + (existingNote ? ` • ${existingNote}` : '');
 
       return `
         <div class="row">
-          <div class="art" style="${artUrl ? `background-image:url(&quot;${artUrl}&quot;)` : ''}"></div>
+          <div class="art" style="${artUrl ? `background-image:url('${artUrl}')` : ''}"></div>
           <div class="body">
             <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
             <div class="note muted">${noteLine}</div>
@@ -699,7 +703,6 @@
     byId('nowTimer').textContent = text;
   }
 
-  // ================== AUTOCOMPLETE ==================
   const acBox = byId('acList');
   const qInput = byId('q');
 
@@ -723,7 +726,7 @@
       const album = escapeHtml(it.album || '');
       return `
         <div class="ac-item" data-idx="${idx}">
-          <div class="ac-cover" style="${cover ? `background-image:url(&quot;${cover}&quot;)` : ''}"></div>
+          <div class="ac-cover" style="${cover ? `background-image:url('${cover}')` : ''}"></div>
           <div style="min-width:0">
             <div class="ac-title">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
             <div class="ac-sub">${album ? album : escapeHtml(it.source || '')}</div>
@@ -784,11 +787,9 @@
     hideAC();
   });
 
-  // ================== DATA ==================
   async function refreshEvent(){
     try{
       hideInlineError();
-
       if(!EVENT_SLUG){
         location.replace('/404');
         return null;
@@ -831,7 +832,7 @@
     try{
       const data = await getJSON(EP.queue(EVENT_SLUG));
       state.queue = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
-      renderQueue();
+      await renderQueue();
       renderMine();
     }catch(e){
       console.error('[refreshQueue] failed:', e);
@@ -839,7 +840,6 @@
     }
   }
 
-  // ================== SUGGEST ==================
   byId('add').addEventListener('click', async ()=>{
     const raw = byId('q').value.trim();
     if(!raw) return;
@@ -895,20 +895,12 @@
 
   function pickToken(payload){
     if(!payload) return null;
-    return (
-      payload.access_token ||
-      payload.token ||
-      payload.jwt ||
-      payload?.data?.access_token ||
-      payload?.data?.token ||
-      null
-    );
+    return payload.access_token || payload.token || payload.jwt || payload?.data?.access_token || payload?.data?.token || null;
   }
 
   async function authViaTelegram(){
     const tg = window.Telegram?.WebApp;
     state.isInTG = !!(tg && typeof tg.initData === 'string' && tg.initData.length > 0);
-
     if(!state.isInTG) return null;
 
     try{
