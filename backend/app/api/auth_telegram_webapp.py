@@ -11,7 +11,7 @@ from urllib.parse import parse_qsl
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/auth/telegram", tags=["auth"])
+router = APIRouter(prefix="/api/v1/auth/telegram", tags=["auth"])
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 JWT_SECRET = os.getenv("JWT_SECRET", "dev_secret_change_me")
