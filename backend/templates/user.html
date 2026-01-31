@@ -258,12 +258,8 @@
   // ✅ event slug from query: ?event=event_kaif (or any slug)
     const params = new URLSearchParams(location.search);
     const fromQuery =
-      params.get('tgWebAppStartParam') ||
-      params.get('event');
-
+      params.get('tgWebAppStartParam')
     const pathParts = location.pathname.split('/').filter(Boolean);
-    const fromPath =
-      pathParts[0] === 'events' ? pathParts[1] : null;
 
     const EVENT_SLUG = fromQuery || fromPath;
 
