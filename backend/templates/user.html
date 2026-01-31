@@ -58,6 +58,7 @@
     @keyframes pulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
 
     .views{flex:1 1 auto; padding:8px 0 92px}
+
     .bottom{position:fixed; inset:auto 0 0 0; background:linear-gradient(180deg, rgba(8,5,26,.4), rgba(8,5,26,.75)); backdrop-filter:blur(10px) saturate(150%); border-top:1px solid var(--border); z-index:6}
     .bottom .container{display:flex; gap:8px; padding:8px 12px}
     .btab{flex:1 1 0; border:none; border-radius:12px; color:var(--txt); background:rgba(255,255,255,.06); border:1px solid var(--border); padding:10px 12px; font-weight:900; letter-spacing:.2px; cursor:pointer}
@@ -131,30 +132,21 @@
     .ac-title{font-weight:800}
     .ac-sub{font-size:12px; color:var(--muted)}
 
-    /* ===== PROD: error banner under header ===== */
-    .fatal-wrap{
-      position:fixed;
-      left:0; right:0;
-      top: calc(64px + env(safe-area-inset-top, 0px));
-      z-index: 100;
-      pointer-events:none;
-    }
-    .fatal{
-      pointer-events:auto;
-      width:min(var(--maxw), calc(100% - 32px));
-      margin:0 auto;
-      padding:12px 14px;
+    /* ✅ NEW: inline banner (no overlay) */
+    .inline-banner{
+      margin:12px 0 0;
+      padding:12px 12px;
       border-radius:14px;
       background:rgba(255,77,210,.10);
       border:1px solid rgba(255,255,255,.22);
       box-shadow:var(--shadow);
-      color:var(--txt);
       display:flex;
       gap:10px;
       align-items:flex-start;
     }
-    .fatal b{display:block; margin-bottom:2px}
-    .fatal .x{
+    .inline-banner.hidden{display:none}
+    .inline-banner b{display:block; margin-bottom:2px}
+    .inline-banner .x{
       margin-left:auto;
       border:none;
       background:rgba(255,255,255,.08);
@@ -165,23 +157,12 @@
       font-weight:900;
       cursor:pointer;
     }
-    .fatal.hidden{display:none}
   </style>
 </head>
 
 <body>
 <div class="bg"></div>
 <div class="blob b1"></div><div class="blob b2"></div>
-
-<div class="fatal-wrap">
-  <div id="fatalError" class="fatal hidden" role="alert" aria-live="assertive">
-    <div>
-      <b id="fatalTitle">Error</b>
-      <div id="fatalMsg" class="muted"></div>
-    </div>
-    <button class="x" id="fatalClose">✕</button>
-  </div>
-</div>
 
 <div class="app">
   <header>
@@ -207,6 +188,16 @@
 
   <main class="views">
     <div class="container">
+
+      <!-- ✅ Banner is now INLINE (no overlay) -->
+      <div id="inlineError" class="inline-banner hidden" role="alert" aria-live="assertive">
+        <div>
+          <b id="inlineTitle">Error</b>
+          <div id="inlineMsg" class="muted"></div>
+        </div>
+        <button class="x" id="inlineClose">✕</button>
+      </div>
+
       <section class="now card">
         <div class="inner">
           <div class="cover" id="nowCover" aria-hidden="true"></div>
@@ -285,7 +276,6 @@
   const API_BASE = "https://next-track.fun/api/v1";
   const WS_BASE  = "wss://next-track.fun";
 
-  // ⚠️ ВАЖЛИВО: search endpoint зробив зі слешем "/search/" бо твій роут @router.get("/")
   const EP = {
     authWebApp: (initData) => `${API_BASE}/auth/telegram/webapp?init_data=${encodeURIComponent(initData)}`,
     event:      (slug)     => `${API_BASE}/events/${encodeURIComponent(slug)}`,
@@ -334,9 +324,8 @@
     voteClosesAt: 0,
     trackEndsAt: 0,
 
-    // autocomplete selection
     acSelected: null,
-    acOpen: false,
+    isInTG: false,
   };
 
   function setAuth(token){ state.token = token; }
@@ -344,32 +333,32 @@
     return state.token ? { 'Authorization': `Bearer ${state.token}` } : {};
   }
 
-  // ===== PROD errors =====
-  let fatalTimer = null;
+  // ================== INLINE ERROR (NO OVERLAY) ==================
+  let inlineTimer = null;
 
-  function showFatalError(title, msg, autoHideMs=2800){
-    const box = byId('fatalError');
-    byId('fatalTitle').textContent = title || 'Error';
-    byId('fatalMsg').textContent = msg || '';
+  function showInlineError(title, msg, autoHideMs=2800){
+    const box = byId('inlineError');
+    byId('inlineTitle').textContent = title || 'Error';
+    byId('inlineMsg').textContent = msg || '';
     box.classList.remove('hidden');
 
-    if (fatalTimer) clearTimeout(fatalTimer);
+    if (inlineTimer) clearTimeout(inlineTimer);
     if (autoHideMs && autoHideMs > 0){
-      fatalTimer = setTimeout(()=> hideFatalError(), autoHideMs);
+      inlineTimer = setTimeout(()=> hideInlineError(), autoHideMs);
     }
   }
 
-  function hideFatalError(){
-    const box = byId('fatalError');
+  function hideInlineError(){
+    const box = byId('inlineError');
     box.classList.add('hidden');
-    byId('fatalTitle').textContent = 'Error';
-    byId('fatalMsg').textContent = '';
-    if (fatalTimer) { clearTimeout(fatalTimer); fatalTimer = null; }
+    byId('inlineTitle').textContent = 'Error';
+    byId('inlineMsg').textContent = '';
+    if (inlineTimer) { clearTimeout(inlineTimer); inlineTimer = null; }
   }
 
-  byId('fatalClose').addEventListener('click', hideFatalError);
+  byId('inlineClose').addEventListener('click', hideInlineError);
 
-  // ================== HTTP (PROD) ==================
+  // ================== HTTP ==================
   class HttpError extends Error {
     constructor(message, {status=0, url='', bodyText='', isNetwork=false} = {}) {
       super(message);
@@ -402,7 +391,6 @@
       }
 
       if(!bodyText) return null;
-
       try{ return JSON.parse(bodyText); }
       catch(_){ throw new HttpError('Invalid JSON', { status: res.status, url: res.url, bodyText: bodyText.slice(0, 500), isNetwork:false }); }
 
@@ -511,8 +499,7 @@
 
     const title = (track.title || track.name || '').trim();
     const artist = (track.artist || '').trim();
-    const combined = (title || artist) ? `${title || '—'}${artist ? ' — ' + artist : ''}` : ((state.lang === 'ru') ? 'Нет трека' : 'No track');
-    titleEl.textContent = combined;
+    titleEl.textContent = (title || artist) ? `${title || '—'}${artist ? ' — ' + artist : ''}` : ((state.lang === 'ru') ? 'Нет трека' : 'No track');
 
     const cover = (track.cover_url || track.cover || '').trim();
     if(cover) byId('nowCover').style.backgroundImage = `url("${cover.replaceAll('"','%22')}")`;
@@ -579,12 +566,13 @@
       if(!state.votingOpen || state.myVotes.has(id)) return;
 
       if(!state.token){
-        showFatalError('Not authorized', 'Open this page via Telegram WebApp.', 0);
+        // ✅ better message + NO overlay + stays until закрыли
+        showInlineError('Auth required', 'Token missing. WebApp auth did not complete. Check console.', 0);
         return;
       }
 
       try{
-        hideFatalError();
+        hideInlineError();
         await postJSON(EP.vote(EVENT_SLUG), { track_id:id });
         state.myVotes.add(id);
         btn.classList.add('voted'); btn.textContent='Voted'; btn.disabled = true;
@@ -592,8 +580,8 @@
       }catch(err){
         console.error(err);
         const status = err?.status ?? 0;
-        if(status === 401 || status === 403) showFatalError('Not authorized', 'Open via Telegram WebApp.', 0);
-        else showFatalError('Error', 'Vote failed');
+        if(status === 401 || status === 403) showInlineError('Auth required', 'Backend rejected token (401).', 0);
+        else showInlineError('Error', 'Vote failed');
       }
     };
   }
@@ -645,12 +633,11 @@
     byId('nowTimer').textContent = text;
   }
 
-  // ================== AUTOCOMPLETE (WORKING) ==================
+  // ================== AUTOCOMPLETE ==================
   const acBox = byId('acList');
   const qInput = byId('q');
 
   function hideAC(){
-    state.acOpen = false;
     acBox.classList.add('hidden');
     acBox.innerHTML = '';
     state.acSelected = null;
@@ -661,7 +648,6 @@
       hideAC();
       return;
     }
-    state.acOpen = true;
     acBox.classList.remove('hidden');
 
     acBox.innerHTML = items.map((it, idx)=>{
@@ -674,7 +660,7 @@
           <div class="ac-cover" style="${cover ? `background-image:url('${String(cover).replaceAll("'","%27")}')` : ''}"></div>
           <div style="min-width:0">
             <div class="ac-title">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
-            <div class="ac-sub">${album ? album : it.source || ''}</div>
+            <div class="ac-sub">${album ? album : (it.source || '')}</div>
           </div>
         </div>
       `;
@@ -690,19 +676,15 @@
       hideAC();
       return;
     }
-
-    // dedupe
     if(q === acLastQuery) return;
     acLastQuery = q;
 
     try{
-      const res = await getJSON(EP.search(q, 15), { timeoutMs: 6000 });
+      const res = await getJSON(EP.search(q, 15), { timeoutMs: 6500 });
       const items = res?.items || [];
       showAC(items);
-      // stash latest list on element to pick by idx
       acBox._items = items;
     }catch(e){
-      // якщо пошук впав — просто не показуємо, не спамимо банером
       hideAC();
       console.warn('[search] failed:', e);
     }
@@ -731,17 +713,15 @@
     if(!it) return;
 
     state.acSelected = it;
-    // заповнюємо input красиво
     const line = `${it.title || ''}${it.artist ? ' — ' + it.artist : ''}`.trim();
     qInput.value = line || qInput.value;
-
     hideAC();
   });
 
   // ================== DATA ==================
   async function refreshEvent(){
     try{
-      hideFatalError();
+      hideInlineError();
 
       if(!EVENT_SLUG){
         location.replace('/404');
@@ -766,45 +746,30 @@
 
     }catch(e){
       console.error('[refreshEvent] failed:', e);
-
       const status = e?.status ?? 0;
 
       if(status === 404){
         location.replace('/404');
         return null;
       }
-
-      if(status === 401 || status === 403){
-        showFatalError('Not authorized', 'Please open via Telegram WebApp.', 0);
-        return null;
-      }
-
       if(status === 0 || status === 502 || status === 504){
-        showFatalError('Service temporarily unavailable', 'Try again in a moment.');
+        showInlineError('Service temporarily unavailable', 'Try again in a moment.');
         return null;
       }
-
-      showFatalError('Error', status ? `HTTP ${status}` : 'Unknown error');
+      showInlineError('Error', status ? `HTTP ${status}` : 'Unknown error');
       return null;
     }
   }
 
   async function refreshQueue(){
     try{
-      if(!EVENT_SLUG){
-        location.replace('/404');
-        return;
-      }
       const data = await getJSON(EP.queue(EVENT_SLUG));
       state.queue = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
       renderQueue();
       renderMine();
     }catch(e){
       console.error('[refreshQueue] failed:', e);
-      const status = e?.status ?? 0;
-      if(status === 404) location.replace('/404');
-      else if(status === 401 || status === 403) showFatalError('Not authorized', 'Queue is not accessible.', 0);
-      else showFatalError('Service temporarily unavailable', 'Queue cannot be loaded right now.');
+      showInlineError('Service temporarily unavailable', 'Queue cannot be loaded right now.');
     }
   }
 
@@ -814,11 +779,11 @@
     if(!raw) return;
 
     if(!state.token){
-      showFatalError('Not authorized', 'Open this page via Telegram WebApp.', 0);
+      // ✅ message without blaming user
+      showInlineError('Auth required', 'Backend expects Telegram token. Auth did not complete.', 0);
       return;
     }
 
-    // Якщо юзер вибрав з autocomplete — шлемо стабільний track_id + мету
     const selected = state.acSelected;
     let payload = null;
 
@@ -831,7 +796,6 @@
         duration_sec: Number(selected.duration_sec || 0) || 0,
       };
     } else {
-      // fallback: ручний ввід
       const parts = raw.split(/ — | - | – /);
       const title = (parts[0]||'').trim();
       const artist = (parts[1]||'').trim() || null;
@@ -839,7 +803,7 @@
     }
 
     try{
-      hideFatalError();
+      hideInlineError();
       await postJSON(EP.suggest(EVENT_SLUG), payload);
       byId('q').value='';
       state.acSelected = null;
@@ -849,9 +813,8 @@
     }catch(err){
       console.error(err);
       const status = err?.status ?? 0;
-      if (status === 401 || status === 403) showFatalError('Not authorized', 'Open via Telegram WebApp.', 0);
-      else if (status === 0 || status === 502 || status === 504) showFatalError('Service temporarily unavailable', 'Try again in a moment.');
-      else showFatalError('Error', 'Suggest failed');
+      if (status === 401 || status === 403) showInlineError('Auth required', 'Backend returned 401. Token rejected.', 0);
+      else showInlineError('Error', 'Suggest failed');
     }
   });
 
@@ -867,28 +830,83 @@
   }
   $('.btab').forEach(b=>b.addEventListener('click', ()=>selectTab(b.dataset.target)));
 
-  // ================== TELEGRAM AUTH ==================
+  // ================== TELEGRAM AUTH (GET + POST) ==================
+  function pickToken(payload){
+    if(!payload) return null;
+    return (
+      payload.access_token ||
+      payload.token ||
+      payload.jwt ||
+      payload?.data?.access_token ||
+      payload?.data?.token ||
+      null
+    );
+  }
+
   async function authViaTelegram(){
     const tg = window.Telegram?.WebApp;
+    state.isInTG = !!(tg && typeof tg.initData === 'string' && tg.initData.length > 0);
 
-    // якщо не в Telegram — просто не намагаємось
-    if(!tg || !tg.initDataUnsafe?.user) return null;
+    if(!state.isInTG) return null;
 
+    // user info fallback
     try{
-      const res = await fetch(EP.authWebApp(tg.initData));
-      if(!res.ok) throw new Error('auth failed');
-      const payload = await res.json();
-      if(payload?.access_token) setAuth(payload.access_token);
-      if(payload?.user) state.user = payload.user;
-      renderUser();
-      return payload;
+      const u = tg?.initDataUnsafe?.user;
+      if(u){
+        state.user = { tg_id: u?.id, tg_username: u?.username, img: u?.photo_url };
+        renderUser();
+      }
+    }catch(_){}
+
+    const initData = tg.initData;
+
+    // 1) try GET (as you had)
+    try{
+      const r = await fetch(EP.authWebApp(initData), { method:'GET', headers:{'Accept':'application/json'} });
+      const txt = await r.text();
+      let payload = null;
+      try{ payload = txt ? JSON.parse(txt) : null; }catch(_){ payload = null; }
+      if(r.ok){
+        const token = pickToken(payload);
+        if(token){
+          setAuth(token);
+          if(payload?.user) { state.user = payload.user; renderUser(); }
+          console.info('[auth] ok via GET');
+          return payload;
+        }
+      }
+      console.warn('[auth] GET failed or no token', r.status, payload);
     }catch(e){
-      // fallback до даних TG, але без токена (protected endpoints все одно дадуть 401)
-      const u = tg.initDataUnsafe.user;
-      state.user = { tg_id: u?.id, tg_username: u?.username, img: u?.photo_url };
-      renderUser();
-      return null;
+      console.warn('[auth] GET exception', e);
     }
+
+    // 2) try POST (common pattern)
+    try{
+      const r = await fetch(`${API_BASE}/auth/telegram/webapp`, {
+        method:'POST',
+        headers:{ 'Accept':'application/json', 'Content-Type':'application/json' },
+        body: JSON.stringify({ init_data: initData })
+      });
+      const txt = await r.text();
+      let payload = null;
+      try{ payload = txt ? JSON.parse(txt) : null; }catch(_){ payload = null; }
+      if(r.ok){
+        const token = pickToken(payload);
+        if(token){
+          setAuth(token);
+          if(payload?.user) { state.user = payload.user; renderUser(); }
+          console.info('[auth] ok via POST');
+          return payload;
+        }
+      }
+      console.warn('[auth] POST failed or no token', r.status, payload);
+    }catch(e){
+      console.warn('[auth] POST exception', e);
+    }
+
+    // If we're in TG but token is missing => backend mismatch
+    showInlineError('Auth failed', 'WebApp is opened, but token was not issued. Check /auth endpoint.', 0);
+    return null;
   }
 
   // ================== WEBSOCKET ==================
@@ -938,15 +956,12 @@
       return;
     }
 
-    hideFatalError();
+    hideInlineError();
 
     const isInTG = !!window.Telegram?.WebApp?.initData;
     if(isInTG){
       byId('openTG').classList.add('hidden');
       try { window.Telegram.WebApp.expand(); } catch{}
-    } else {
-      // якщо не Telegram — покажемо лінк (він вже є в профілі)
-      // і просто будемо чесно казати "Not authorized" на suggest/vote
     }
 
     setNowPlaying(null);
