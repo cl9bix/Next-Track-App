@@ -86,8 +86,7 @@ async def get_event_for_users(
     print("ALLES IM ORDNUNG")
     # return templates.TemplateResponse(
     #     "user.html",
-    return JSONResponse({'event': event,
-                         'club_slug':club_slug})
+    return {'event': event or {}}
 
 @router.get("/{club_slug}/state")
 async def get_state(
