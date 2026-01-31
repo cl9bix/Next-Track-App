@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.jwt_guard import require_user
-from app.core.redis_client import redis_client
+from app.core.redis_client import get_redis as redis_client
 from app.models.session import get_async_session
 from app.crud.event_crud import (
     list_events,
