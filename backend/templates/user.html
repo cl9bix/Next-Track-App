@@ -479,6 +479,30 @@
       .replaceAll("'","&#39;");
   }
 
+  // ✅ NEW: pick cover from many possible fields (because /queue may differ from /search)
+  function pickCoverUrl(t){
+    const url =
+      (t && (t.cover_url || t.coverUrl || t.cover || t.artwork || t.artwork_url)) ||
+      (t && t.album && (t.album.cover_xl || t.album.cover_big || t.album.cover_medium || t.album.cover)) ||
+      (t && t.deezer && t.deezer.cover_url) ||
+      (t && t.itunes && (t.itunes.artworkUrl100 || t.itunes.artworkUrl60)) ||
+      '';
+    return String(url || '').trim();
+  }
+
+  // ✅ NEW: safe URL for inline CSS
+  function cssUrl(u){
+    u = String(u || '').trim();
+    if(!u) return '';
+    try{
+      // keep ://, encode spaces, etc.
+      const safe = encodeURI(u).replaceAll('"','%22');
+      return safe;
+    }catch(_){
+      return u.replaceAll('"','%22');
+    }
+  }
+
   function renderEventHeader(){
     const ev = state.event || {};
     const clubName = pickFirst(ev, ['club.name','club.title','club_name','clubTitle','clubName'], EVENT_SLUG ? EVENT_SLUG.toUpperCase() : '—');
@@ -502,8 +526,9 @@
     const artist = (track.artist || '').trim();
     titleEl.textContent = (title || artist) ? `${title || '—'}${artist ? ' — ' + artist : ''}` : ((state.lang === 'ru') ? 'Нет трека' : 'No track');
 
-    const cover = (track.cover_url || track.cover || '').trim();
-    if(cover) byId('nowCover').style.backgroundImage = `url("${cover.replaceAll('"','%22')}")`;
+    const cover = pickCoverUrl(track);
+    const safe = cssUrl(cover);
+    if(safe) byId('nowCover').style.backgroundImage = `url("${safe}")`;
     else byId('nowCover').style.backgroundImage = '';
 
     live.classList.remove('hidden');
@@ -523,9 +548,7 @@
     }
   }
 
-  // ✅ NEW: resolve who suggested (best effort)
   function getSuggestedByUsername(t){
-    // 1) if backend provides something
     const raw =
       t?.suggested_by_username ||
       t?.suggested_by_user ||
@@ -543,7 +566,6 @@
       return u.startsWith('@') ? u : '@' + u;
     }
 
-    // 2) if this is "my" suggestion by your stable id format: user:{tg_id}:...
     const myId = state.user?.tg_id;
     const myU  = state.user?.tg_username;
     const trackId = String(t?.track_id || t?.id || '');
@@ -574,9 +596,9 @@
       const title = escapeHtml(t.title || t.name || 'Untitled');
       const artist = escapeHtml(t.artist || '');
 
-      // ✅ REQUIRED: always use song cover (not TG avatar)
-      const cover = String(t.cover_url || '').trim();
-      const artUrl = cover;
+      // ✅ FIX: take cover from many fields + safe css url
+      const cover = pickCoverUrl(t);
+      const artUrl = cssUrl(cover);
 
       const votes = Number(t.votes || 0);
       const percent = Math.max(0, Math.min(100, votes));
@@ -586,7 +608,7 @@
       const noteLine = `виставлено ${who}` + (existingNote ? ` • ${existingNote}` : '');
 
       row.innerHTML = `
-        <div class="art" style="${artUrl ? `background-image:url('${artUrl.replaceAll("'","%27")}')` : ''}" aria-hidden="true"></div>
+        <div class="art" style="${artUrl ? `background-image:url(&quot;${artUrl}&quot;)` : ''}" aria-hidden="true"></div>
         <div class="body">
           <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
           <div class="note muted">${noteLine}</div>
@@ -643,8 +665,7 @@
       const title = escapeHtml(t.title || t.name || 'Untitled');
       const artist = escapeHtml(t.artist || '');
 
-      // ✅ cover only
-      const artUrl = String(t.cover_url || '').trim();
+      const artUrl = cssUrl(pickCoverUrl(t));
 
       const who = escapeHtml(getSuggestedByUsername(t));
       const existingNote = escapeHtml(t.note || '');
@@ -652,7 +673,7 @@
 
       return `
         <div class="row">
-          <div class="art" style="${artUrl ? `background-image:url('${artUrl.replaceAll("'","%27")}')` : ''}"></div>
+          <div class="art" style="${artUrl ? `background-image:url(&quot;${artUrl}&quot;)` : ''}"></div>
           <div class="body">
             <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
             <div class="note muted">${noteLine}</div>
@@ -696,13 +717,13 @@
     acBox.classList.remove('hidden');
 
     acBox.innerHTML = items.map((it, idx)=>{
-      const cover = it.cover_url || '';
+      const cover = cssUrl(pickCoverUrl(it));
       const title = escapeHtml(it.title || '');
       const artist = escapeHtml(it.artist || '');
       const album = escapeHtml(it.album || '');
       return `
         <div class="ac-item" data-idx="${idx}">
-          <div class="ac-cover" style="${cover ? `background-image:url('${String(cover).replaceAll("'","%27")}')` : ''}"></div>
+          <div class="ac-cover" style="${cover ? `background-image:url(&quot;${cover}&quot;)` : ''}"></div>
           <div style="min-width:0">
             <div class="ac-title">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
             <div class="ac-sub">${album ? album : escapeHtml(it.source || '')}</div>
@@ -862,19 +883,16 @@
     }
   });
 
-  // ================== PROFILE / NOTIFS ==================
   const tog = byId('notifs');
   tog.addEventListener('change', ()=>{ localStorage.setItem('nt_user_notifs', tog.checked?'1':'0'); });
   tog.checked = localStorage.getItem('nt_user_notifs')==='1';
 
-  // ================== BOTTOM NAV ==================
   function selectTab(id){
     $('.btab').forEach(b=>b.classList.toggle('active', b.dataset.target===id));
     $('.screen').forEach(s=>s.classList.toggle('active', s.id===id));
   }
   $('.btab').forEach(b=>b.addEventListener('click', ()=>selectTab(b.dataset.target)));
 
-  // ================== TELEGRAM AUTH ==================
   function pickToken(payload){
     if(!payload) return null;
     return (
@@ -925,7 +943,6 @@
     return null;
   }
 
-  // ================== WEBSOCKET ==================
   function connectWS(){
     if(!EVENT_SLUG) return;
 
@@ -965,7 +982,6 @@
     ws.onclose = ()=> setTimeout(connectWS, 1500);
   }
 
-  // ================== INIT ==================
   async function init(){
     if(!EVENT_SLUG){
       location.replace('/404');
