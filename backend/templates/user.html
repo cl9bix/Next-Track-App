@@ -48,7 +48,7 @@
     .now{margin:14px 0 6px}
     .card{background:var(--glass); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow)}
     .now .inner{display:flex; gap:14px; padding:14px}
-    .cover{width:62px; height:62px; border-radius:14px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); background-size:cover; background-position:center}
+    .cover{width:62px; height:62px; border-radius:14px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); background-size:cover; background-position:center; display:flex; align-items:center; justify-content:center; font-weight:900; letter-spacing:.2px}
     .meta{display:flex; flex-direction:column; gap:6px; min-width:0}
     .title{font-weight:900; font-size:18px}
     .sub{color:var(--muted)}
@@ -69,7 +69,7 @@
 
     .list{display:flex; flex-direction:column; gap:10px; padding:12px}
     .row{display:flex; gap:12px; align-items:center; padding:12px; border-radius:14px; background:rgba(255,255,255,.06); border:1px solid var(--border)}
-    .row .art{width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); background-size:cover; background-position:center}
+    .row .art{width:46px; height:46px; border-radius:12px; background:linear-gradient(135deg,var(--accent1),var(--accent2)); background-size:cover; background-position:center; display:flex; align-items:center; justify-content:center; font-weight:900}
     .row .body{flex:1 1 auto; min-width:0}
     .row .name{font-weight:800}
     .row .note{color:var(--muted); font-size:12px}
@@ -199,7 +199,7 @@
         <div class="inner">
           <div class="cover" id="nowCover" aria-hidden="true"></div>
           <div class="meta" style="flex:1 1 auto">
-            <div class="title" id="nowTitle">Loading…</div>
+            <div class="title" id="nowTitle">—</div>
             <div class="sub muted i18n" data-key="now_en">Now playing</div>
             <div class="sub muted i18n hidden" data-key="now_ru">Сейчас играет</div>
             <div class="bars"><span></span></div>
@@ -286,6 +286,7 @@
 
   function parseEventSlug(){
     const url = new URL(window.location.href);
+
     const direct = (url.searchParams.get('event') || '').trim();
     if (direct) return direct;
 
@@ -317,6 +318,7 @@
     votingOpen: false,
     voteClosesAt: 0,
     trackEndsAt: 0,
+
     acSelected: null,
     isInTG: false,
   };
@@ -332,11 +334,13 @@
     byId('inlineTitle').textContent = title || 'Error';
     byId('inlineMsg').textContent = msg || '';
     box.classList.remove('hidden');
+
     if (inlineTimer) clearTimeout(inlineTimer);
     if (autoHideMs && autoHideMs > 0){
       inlineTimer = setTimeout(()=> hideInlineError(), autoHideMs);
     }
   }
+
   function hideInlineError(){
     const box = byId('inlineError');
     box.classList.add('hidden');
@@ -446,23 +450,6 @@
   langButtons.forEach(b=>b.addEventListener('click', ()=>setLang(b.dataset.lang)));
   setLang(state.lang);
 
-  function renderUser(){
-    const name = state.user?.tg_username ? '@'+state.user.tg_username : '@guest';
-    byId('userName').textContent = name;
-    byId('userId').textContent = state.user?.tg_id ? `id: ${state.user.tg_id}` : '';
-    const img = state.user?.img;
-    if(img) byId('avatar').style.backgroundImage = `url("${img}")`;
-  }
-
-  function pickFirst(obj, paths, fallback=''){
-    for(const p of paths){
-      const v = p.split('.').reduce((a,k)=> (a && a[k] != null) ? a[k] : undefined, obj);
-      if(typeof v === 'string' && v.trim()) return v.trim();
-      if(typeof v === 'number') return String(v);
-    }
-    return fallback;
-  }
-
   function escapeHtml(s){
     return String(s ?? '')
       .replaceAll('&','&amp;')
@@ -472,93 +459,88 @@
       .replaceAll("'","&#39;");
   }
 
-  // ✅ FIXED: correct pick cover_url (your backend response matches this exactly)
-  function pickCoverUrl(t){
-    const url =
-      (t && (t.cover_url || t.coverUrl || t.cover || t.artwork || t.artwork_url)) ||
-      (t && t.album && (t.album.cover_xl || t.album.cover_big || t.album.cover_medium || t.album.cover)) ||
-      (t && t.deezer && t.deezer.cover_url) ||
-      (t && t.itunes && (t.itunes.artworkUrl100 || t.itunes.artworkUrl60)) ||
-      '';
-    return String(url || '').trim();
-  }
-
-  // ✅ Make safe for CSS url('...') and keep it readable
   function cssUrl(u){
     u = String(u || '').trim();
     if(!u) return '';
     try { return encodeURI(u).replaceAll("'","%27"); } catch { return u.replaceAll("'","%27"); }
   }
 
-  // ✅ Preload image to avoid “url set but not rendered” / network glitch
-  async function ensureImage(url){
-    url = String(url || '').trim();
-    if(!url) return false;
-    return await new Promise((resolve)=>{
-      const img = new Image();
-      img.referrerPolicy = 'no-referrer';
-      img.onload = ()=>resolve(true);
-      img.onerror = ()=>resolve(false);
-      img.src = url;
-    });
+  // ✅ Your /queue: cover_url may be null. If null => fallback art.
+  function pickCoverUrl(t){
+    const url =
+      (t && (t.cover_url || t.coverUrl || t.cover || t.artwork || t.artwork_url)) ||
+      '';
+    return String(url || '').trim();
+  }
+
+  function fallbackLetter(t){
+    const s = String(t?.title || t?.name || '—').trim();
+    const ch = s ? s[0] : '—';
+    return ch.toUpperCase();
+  }
+
+  function renderUser(){
+    const name = state.user?.tg_username ? '@'+state.user.tg_username : '@guest';
+    byId('userName').textContent = name;
+    byId('userId').textContent = state.user?.tg_id ? `id: ${state.user.tg_id}` : '';
+    const img = state.user?.img;
+    if(img) byId('avatar').style.backgroundImage = `url("${img}")`;
   }
 
   function renderEventHeader(){
+    // From your /events response: {title, ...}
     const ev = state.event || {};
-    const clubName = pickFirst(ev, ['club.name','club.title','club_name','clubTitle','clubName'], EVENT_SLUG ? EVENT_SLUG.toUpperCase() : '—');
-    const eventName = pickFirst(ev, ['title','name','event.title','event.name','event_title'], '—');
+    const clubName = EVENT_SLUG ? EVENT_SLUG.toUpperCase() : '—';
+    const eventName = (ev.title || ev.name || '—');
     byId('djName').textContent = clubName;
     byId('eventName').textContent = eventName;
   }
 
+  // ✅ No “default Now Playing”: show title only if we have a track.
   function setNowPlaying(track){
     const live = byId('liveBadge');
     const titleEl = byId('nowTitle');
+    const coverEl = byId('nowCover');
 
     if(!track){
-      titleEl.textContent = (state.lang === 'ru') ? 'Загрузка…' : 'Loading…';
-      byId('nowCover').style.backgroundImage = '';
+      titleEl.textContent = '—';
+      coverEl.style.backgroundImage = '';
+      coverEl.textContent = '';
       live.classList.add('hidden');
       return;
     }
 
     const title = (track.title || track.name || '').trim();
     const artist = (track.artist || '').trim();
-    titleEl.textContent = (title || artist) ? `${title || '—'}${artist ? ' — ' + artist : ''}` : ((state.lang === 'ru') ? 'Нет трека' : 'No track');
+    titleEl.textContent = (title || artist) ? `${title || '—'}${artist ? ' — ' + artist : ''}` : '—';
 
     const cover = pickCoverUrl(track);
-    const safe = cssUrl(cover);
-    byId('nowCover').style.backgroundImage = safe ? `url('${safe}')` : '';
+    const artUrl = cssUrl(cover);
+
+    if(artUrl){
+      coverEl.style.backgroundImage = `url('${artUrl}')`;
+      coverEl.textContent = '';
+    }else{
+      coverEl.style.backgroundImage = '';
+      coverEl.textContent = fallbackLetter(track);
+    }
 
     live.classList.remove('hidden');
   }
 
+  // ✅ From your track_id: user:<tg_id>:...
   function getSuggestedByUsername(t){
-    const raw =
-      t?.suggested_by_username ||
-      t?.suggested_by_user ||
-      t?.suggested_by ||
-      t?.tg_username ||
-      t?.username ||
-      t?.created_by_username ||
-      t?.author_username ||
-      t?.user?.username ||
-      t?.user?.tg_username ||
-      '';
-
-    if (typeof raw === 'string' && raw.trim()){
-      const u = raw.trim();
-      return u.startsWith('@') ? u : '@' + u;
-    }
-
-    // fallback if you later encode user in track_id like user:<id>:...
-    const myId = state.user?.tg_id;
-    const myU  = state.user?.tg_username;
     const trackId = String(t?.track_id || t?.id || '');
-    if (myId && myU && trackId.startsWith(`user:${myId}:`)){
-      return myU.startsWith('@') ? myU : '@' + myU;
+    const m = trackId.match(/^user:(\d+):/);
+    if(m){
+      const tgId = Number(m[1]);
+      if(state.user?.tg_id && Number(state.user.tg_id) === tgId){
+        const u = state.user?.tg_username;
+        if(u) return u.startsWith('@') ? u : '@' + u;
+        return '@user';
+      }
+      return '@guest';
     }
-
     return '@guest';
   }
 
@@ -576,24 +558,17 @@
     }
   }
 
-  async function renderQueue(){
+  function renderQueue(){
     const qWrap = byId('queueList');
     qWrap.innerHTML = '';
 
-    const tracks = [...state.queue];
+    const tracks = Array.isArray(state.queue) ? [...state.queue] : [];
     if(!tracks.length){
       qWrap.innerHTML = `<div class="empty">Queue is empty</div>`;
       return;
     }
 
-    // ✅ precheck covers (optional, but makes it super reliable)
-    // only for first ~20 items to keep it snappy
-    const checks = tracks.slice(0, 20).map(t => ensureImage(pickCoverUrl(t)));
-    const okFlags = await Promise.all(checks);
-
-    for(let i=0;i<tracks.length;i++){
-      const t = tracks[i];
-
+    for(const t of tracks){
       const row = document.createElement('div');
       row.className = 'row';
 
@@ -603,8 +578,8 @@
       const title = escapeHtml(t.title || t.name || 'Untitled');
       const artist = escapeHtml(t.artist || '');
 
-      const cover = pickCoverUrl(t);
-      const artUrl = (i < 20 && okFlags[i] === false) ? '' : cssUrl(cover);
+      const cover = pickCoverUrl(t); // may be null/empty from backend
+      const artUrl = cssUrl(cover);
 
       const votes = Number(t.votes || 0);
       const percent = Math.max(0, Math.min(100, votes));
@@ -614,7 +589,8 @@
       const noteLine = `виставлено ${who}` + (existingNote ? ` • ${existingNote}` : '');
 
       row.innerHTML = `
-        <div class="art" style="${artUrl ? `background-image:url('${artUrl}')` : ''}" aria-hidden="true"></div>
+        <div class="art" aria-hidden="true"
+             style="${artUrl ? `background-image:url('${artUrl}')` : ''}">${artUrl ? '' : escapeHtml(fallbackLetter(t))}</div>
         <div class="body">
           <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
           <div class="note muted">${noteLine}</div>
@@ -633,7 +609,7 @@
       if(!state.votingOpen || state.myVotes.has(id)) return;
 
       if(!state.token){
-        showInlineError('Auth required', 'Token missing. WebApp auth did not complete. Check console.', 0);
+        showInlineError('Auth required', 'Open this page inside Telegram WebApp to vote/suggest.', 0);
         return;
       }
 
@@ -646,7 +622,7 @@
       }catch(err){
         console.error(err);
         const status = err?.status ?? 0;
-        if(status === 401 || status === 403) showInlineError('Auth required', 'Backend rejected token (401).', 0);
+        if(status === 401 || status === 403) showInlineError('Not authorized', 'Backend rejected token (401/403).', 0);
         else showInlineError('Error', 'Vote failed');
       }
     };
@@ -677,7 +653,7 @@
 
       return `
         <div class="row">
-          <div class="art" style="${artUrl ? `background-image:url('${artUrl}')` : ''}"></div>
+          <div class="art" style="${artUrl ? `background-image:url('${artUrl}')` : ''}">${artUrl ? '' : escapeHtml(fallbackLetter(t))}</div>
           <div class="body">
             <div class="name">${title}${artist ? ` — <span class="muted">${artist}</span>` : ''}</div>
             <div class="note muted">${noteLine}</div>
@@ -720,7 +696,7 @@
     acBox.classList.remove('hidden');
 
     acBox.innerHTML = items.map((it, idx)=>{
-      const cover = cssUrl(pickCoverUrl(it));
+      const cover = cssUrl(it.cover_url || '');
       const title = escapeHtml(it.title || '');
       const artist = escapeHtml(it.artist || '');
       const album = escapeHtml(it.album || '');
@@ -790,25 +766,23 @@
   async function refreshEvent(){
     try{
       hideInlineError();
+
       if(!EVENT_SLUG){
         location.replace('/404');
         return null;
       }
 
       const data = await getJSON(EP.event(EVENT_SLUG));
-      state.event = (data && data.event) ? data.event : data;
+      state.event = data || null;
 
       renderEventHeader();
 
-      const st = state.event?.state || {};
-      state.votingOpen = (st.voting_open === "1" || st.voting_open === 1 || st.voting_open === true);
-      state.voteClosesAt = Number(st.vote_closes_at || 0);
-      state.trackEndsAt = Number(st.track_ends_at || 0);
-
-      const np = state.event?.now_playing || state.event?.current_track || state.event?.track || null;
-      setNowPlaying(np);
-
+      // your /events does not have "state" now, so keep defaults
       updateNowTimer();
+
+      // no now_playing from backend yet -> keep empty
+      setNowPlaying(null);
+
       return state.event;
 
     }catch(e){
@@ -832,7 +806,7 @@
     try{
       const data = await getJSON(EP.queue(EVENT_SLUG));
       state.queue = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
-      await renderQueue();
+      renderQueue();
       renderMine();
     }catch(e){
       console.error('[refreshQueue] failed:', e);
@@ -845,13 +819,14 @@
     if(!raw) return;
 
     if(!state.token){
-      showInlineError('Auth required', 'Backend expects Telegram token. Auth did not complete.', 0);
+      showInlineError('Not authorized', 'Open inside Telegram WebApp to suggest tracks.', 0);
       return;
     }
 
     const selected = state.acSelected;
     let payload = null;
 
+    // ✅ if user clicked autocomplete item => send cover_url and duration
     if(selected && selected.title){
       payload = {
         track_id: selected.id || null,
@@ -864,7 +839,7 @@
       const parts = raw.split(/ — | - | – /);
       const title = (parts[0]||'').trim();
       const artist = (parts[1]||'').trim() || null;
-      payload = { title, artist };
+      payload = { title, artist, cover_url: null, duration_sec: 0 };
     }
 
     try{
@@ -878,7 +853,7 @@
     }catch(err){
       console.error(err);
       const status = err?.status ?? 0;
-      if (status === 401 || status === 403) showInlineError('Auth required', 'Backend returned 401. Token rejected.', 0);
+      if (status === 401 || status === 403) showInlineError('Not authorized', 'Backend rejected token (401/403).', 0);
       else showInlineError('Error', 'Suggest failed');
     }
   });
@@ -926,12 +901,11 @@
           return payload;
         }
       }
-      console.warn('[auth] GET failed or no token', r.status, payload);
     }catch(e){
-      console.warn('[auth] GET exception', e);
+      console.warn('[auth] exception', e);
     }
 
-    showInlineError('Auth failed', 'WebApp is opened, but token was not issued. Check /auth endpoint.', 0);
+    showInlineError('Auth failed', 'Token was not issued. Check /api/v1/auth/telegram/webapp.', 0);
     return null;
   }
 
@@ -944,17 +918,9 @@
     ws.onmessage = (ev)=>{
       try{
         const msg = JSON.parse(ev.data);
-
-        if(msg.type === 'voting_open'){
-          state.votingOpen = true;
-          state.voteClosesAt = Number(msg.vote_closes_at || 0);
+        if(msg.type === 'vote' || msg.type === 'queue_added' || msg.type === 'track_finished'){
           refreshQueue().catch(()=>{});
         }
-
-        if(msg.type === 'voting_closed'){
-          state.votingOpen = false;
-        }
-
         if(msg.type === 'track_started'){
           const track = msg.track || null;
           setNowPlaying(track);
@@ -962,11 +928,6 @@
           state.votingOpen = false;
           refreshQueue().catch(()=>{});
         }
-
-        if(msg.type === 'vote' || msg.type === 'queue_added' || msg.type === 'track_finished'){
-          refreshQueue().catch(()=>{});
-        }
-
         updateNowTimer();
       }catch(e){}
     };
@@ -988,6 +949,7 @@
       try { window.Telegram.WebApp.expand(); } catch{}
     }
 
+    // ✅ no “default Now Playing”
     setNowPlaying(null);
 
     await authViaTelegram();
