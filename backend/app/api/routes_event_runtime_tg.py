@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse,JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -86,7 +86,8 @@ async def get_event_for_users(
     print("ALLES IM ORDNUNG")
     # return templates.TemplateResponse(
     #     "user.html",
-    return  {"event": event, "club_slug":club_slug}
+    return JSONResponse({'event': event,
+                         'club_slug':club_slug})
 
 @router.get("/{club_slug}/state")
 async def get_state(
