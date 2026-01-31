@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request
 from app.services.music_search import unified_search
 
-router = APIRouter(prefix=["/api/v1/search"],tags=["search"])
+router = APIRouter(prefix="/api/v1/search",tags=["search"])
 
 @router.get("/")
 async def search(request: Request, q: str, limit: int = 15):
