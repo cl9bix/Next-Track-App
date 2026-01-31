@@ -13,7 +13,7 @@ from app.crud.event_crud import (
     list_events,
     get_latest_event_by_club_slug,
 )
-from app.schemas.schemas import EventResponse,PublicEventResponse
+from app.schemas.schemas import EventResponse,PublicEventResponse, SuggestIn
 from app.services.event_keys import k_state
 from app.services.event_runtime import (
     Track,
