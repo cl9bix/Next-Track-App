@@ -99,7 +99,7 @@ async def admin_login(
         token,
         httponly=True,
         samesite="lax",
-        secure=True,  # якщо локально без https — постав False
+        secure=False,  # якщо локально без https — постав False
         max_age=60 * 60 * 12,
         path="/",
     )

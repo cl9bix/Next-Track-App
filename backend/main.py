@@ -17,6 +17,7 @@ app = FastAPI(title="Next Track API")
 
 ALLOWED_ORIGINS = [
     "http://localhost:5500",
+    "http://localhost:8080",
     "http://127.0.0.1:5500",
     "https://next-track.fun",
     "https://www.next-track.fun",

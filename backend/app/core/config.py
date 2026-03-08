@@ -1,20 +1,29 @@
-from pydantic_settings import BaseSettings
-from functools import lru_cache
-from dotenv import load_dotenv
-load_dotenv()
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
-    BOT_TOKEN: str
-    EVENT_TOKEN_SECRET: str
+    DATABASE_URL: str
+    ALEMBIC_DATABASE_URL: str
+    REDIS_URL: str
+
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     HASH_SECRET_KEY: str
 
-    DATABASE_URL: str
-    REDIS_URL: str
+    POSTGRES_USER: str | None = None
+    POSTGRES_PASSWORD: str | None = None
+    POSTGRES_DB: str | None = None
+    DB_HOST: str | None = None
+    DB_PORT: int | None = None
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    BOT_TOKEN: str | None = None
+    EVENT_TOKEN_SECRET: str | None = None
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
 
 settings = Settings()

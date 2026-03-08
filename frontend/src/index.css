@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    /* Dark club UI — deep dark with neon accents */
+    --background: 230 25% 7%;
+    --foreground: 210 20% 92%;
+
+    --card: 230 20% 11%;
+    --card-foreground: 210 20% 92%;
+
+    --popover: 230 22% 13%;
+    --popover-foreground: 210 20% 92%;
+
+    --primary: 185 90% 50%;
+    --primary-foreground: 230 25% 7%;
+
+    --secondary: 320 85% 55%;
+    --secondary-foreground: 210 20% 95%;
+
+    --muted: 230 18% 16%;
+    --muted-foreground: 215 15% 55%;
+
+    --accent: 270 75% 60%;
+    --accent-foreground: 210 20% 95%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 210 20% 95%;
+
+    --border: 230 15% 18%;
+    --input: 230 15% 18%;
+    --ring: 185 90% 50%;
+
+    --radius: 0.75rem;
+
+    /* Custom tokens */
+    --cyan: 185 90% 50%;
+    --magenta: 320 85% 55%;
+    --purple: 270 75% 60%;
+    --surface-glass: 230 20% 12%;
+    --glow-cyan: 185 90% 50%;
+    --glow-magenta: 320 85% 55%;
+
+    --sidebar-background: 230 22% 9%;
+    --sidebar-foreground: 210 20% 85%;
+    --sidebar-primary: 185 90% 50%;
+    --sidebar-primary-foreground: 230 25% 7%;
+    --sidebar-accent: 230 18% 16%;
+    --sidebar-accent-foreground: 210 20% 92%;
+    --sidebar-border: 230 15% 18%;
+    --sidebar-ring: 185 90% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-card/60 backdrop-blur-xl border border-border/50 shadow-lg;
+  }
+
+  .glass-strong {
+    @apply bg-card/80 backdrop-blur-2xl border border-border/60 shadow-xl;
+  }
+
+  .glow-cyan {
+    box-shadow: 0 0 20px hsl(var(--cyan) / 0.3), 0 0 60px hsl(var(--cyan) / 0.1);
+  }
+
+  .glow-magenta {
+    box-shadow: 0 0 20px hsl(var(--magenta) / 0.3), 0 0 60px hsl(var(--magenta) / 0.1);
+  }
+
+  .glow-purple {
+    box-shadow: 0 0 20px hsl(var(--purple) / 0.3), 0 0 60px hsl(var(--purple) / 0.1);
+  }
+
+  .gradient-primary {
+    @apply bg-gradient-to-r from-primary to-secondary;
+  }
+
+  .gradient-bg {
+    background: linear-gradient(
+      135deg,
+      hsl(230 25% 7%) 0%,
+      hsl(240 20% 10%) 40%,
+      hsl(260 18% 9%) 70%,
+      hsl(230 25% 7%) 100%
+    );
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary;
+  }
+}
+
+@layer utilities {
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
+
+  @keyframes slide-up {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+}
