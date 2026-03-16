@@ -2,7 +2,6 @@ import base64, hashlib, hmac, json, time, urllib.parse
 from fastapi import HTTPException, status
 from app.core.config import settings
 
-# ---- Telegram WebApp initData verification ----
 def verify_telegram_init_data(init_data: str) -> dict:
     data = dict(urllib.parse.parse_qsl(init_data, keep_blank_values=True))
     tg_hash = data.pop("hash", None)

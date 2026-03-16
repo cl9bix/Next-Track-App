@@ -1,15 +1,13 @@
-const ADMIN_TOKEN_KEY = 'next-track-admin-token';
+const ADMIN_TOKEN_KEY = 'admin_access_token';
 
-export const storage = {
-  getAdminToken(): string | null {
-    return localStorage.getItem(ADMIN_TOKEN_KEY);
-  },
-
-  setAdminToken(token: string) {
+export function setAdminToken(token: string) {
     localStorage.setItem(ADMIN_TOKEN_KEY, token);
-  },
+}
 
-  removeAdminToken() {
+export function getAdminToken(): string | null {
+    return localStorage.getItem(ADMIN_TOKEN_KEY);
+}
+
+export function removeAdminToken() {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
-  },
-};
+}

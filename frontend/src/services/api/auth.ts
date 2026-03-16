@@ -1,20 +1,53 @@
-import { apiClient } from './client';
-import type { AuthResponse, LoginCredentials } from '@/types';
+import { apiRequest } from './client';
+import { removeAdminToken, setAdminToken } from '@/lib/storage';
 
-export const authApi = {
-  // Telegram auth
-  telegramAuth: (initData: string) =>
-    apiClient.post<AuthResponse>('/auth/telegram', { init_data: initData }).then(r => r.data),
-
-  // Admin/DJ login
-  login: (credentials: LoginCredentials) =>
-    apiClient.post<AuthResponse>('/auth/login', credentials).then(r => r.data),
-
-  // Verify token
-  me: () =>
-    apiClient.get('/auth/me').then(r => r.data),
-
-  // Logout
-  logout: () =>
-    apiClient.post('/auth/logout').then(r => r.data),
+export type AdminUser = {
+    id: number;
+    username: string;
+    display_name?: string | null;
+    telegram_id?: number | null;
+    role: string;
+    club_id: number;
+    is_active: boolean;
 };
+
+export type AdminLoginResponse = {
+    status: string;
+    access_token: string;
+    token_type: string;
+    admin: AdminUser;
+};
+
+export async function adminLogin(params: {
+    username: string;
+    password: string;
+}): Promise<AdminLoginResponse> {
+    const data = await apiRequest<AdminLoginResponse>('/api/v1/admin/login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+    });
+
+    if (data.access_token) {
+        setAdminToken(data.access_token);
+    }
+
+    return data;
+}
+
+export async function adminMe(): Promise<AdminUser> {
+    return apiRequest<AdminUser>('/api/v1/admin/me', {
+        method: 'GET',
+    });
+}
+
+export async function adminLogout(): Promise<{ status: string }> {
+    const data = await apiRequest<{ status: string }>('/api/v1/admin/logout', {
+        method: 'POST',
+    });
+
+    removeAdminToken();
+    return data;
+}

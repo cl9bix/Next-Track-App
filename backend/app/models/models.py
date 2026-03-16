@@ -3,14 +3,14 @@ from __future__ import annotations
 import enum
 
 from sqlalchemy import (
+    BigInteger,
+    Boolean,
     Column,
-    Integer,
-    String,
     DateTime,
     ForeignKey,
     Index,
-    Boolean,
-    BigInteger,
+    Integer,
+    String,
     UniqueConstraint,
     Enum as SAEnum,
 )
@@ -39,15 +39,16 @@ class Club(Base):
     __tablename__ = "clubs"
 
     id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
-    slug = Column(String, unique=True, index=True)
+    name = Column(String(150), nullable=False)
+    slug = Column(String(150), unique=True, index=True, nullable=False)
 
-    admins = relationship(
-        "AdminUser",
+    admin_links = relationship(
+        "AdminClub",
         back_populates="club",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+
     events = relationship(
         "Event",
         back_populates="club",
@@ -55,15 +56,55 @@ class Club(Base):
         passive_deletes=True,
     )
 
+    club_settings = relationship(
+        "ClubSettings",
+        back_populates="club",
+        uselist=False,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
-class AdminUser(Base):
-    """
-    Адмін панелі (owner/admin). Додаєш вручну.
-    """
-    __tablename__ = "admin_users"
+    __table_args__ = (
+        Index("ix_clubs_name", "name"),
+    )
+
+
+class ClubSettings(Base):
+    __tablename__ = "club_settings"
 
     id = Column(Integer, primary_key=True)
 
+    club_id = Column(
+        Integer,
+        ForeignKey("clubs.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    description = Column(String(2000), nullable=True)
+
+    max_suggestions_per_user = Column(Integer, nullable=False, server_default="3")
+    voting_duration_sec = Column(Integer, nullable=False, server_default="60")
+    background_image_url = Column(String(1024), nullable=True)
+    allow_explicit = Column(Boolean,    nullable=False, server_default="false")
+    auto_play = Column(Boolean, nullable=False, server_default="false")
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    club = relationship("Club", back_populates="club_settings")
+
+
+class AdminUser(Base):
+    __tablename__ = "admin_users"
+
+    id = Column(Integer, primary_key=True)
     telegram_id = Column(BigInteger, unique=True, index=True, nullable=True)
     display_name = Column(String(120), nullable=True)
 
@@ -76,12 +117,45 @@ class AdminUser(Base):
         server_default=AdminRole.admin.value,
     )
 
-    is_active = Column(Boolean, default=True, nullable=False)
-
-    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False)
-    club = relationship("Club", back_populates="admins")
+    is_active = Column(Boolean, nullable=False, server_default="true")
+    max_club_count = Column(Integer, nullable=False, server_default="1")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    admin_clubs = relationship(
+        "AdminClub",
+        back_populates="admin",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    __table_args__ = (
+        Index("ix_admin_users_is_active", "is_active"),
+    )
+
+
+class AdminClub(Base):
+    __tablename__ = "admin_clubs"
+
+    admin_id = Column(
+        Integer,
+        ForeignKey("admin_users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    club_id = Column(
+        Integer,
+        ForeignKey("clubs.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    admin = relationship("AdminUser", back_populates="admin_clubs")
+    club = relationship("Club", back_populates="admin_links")
+
+    __table_args__ = (
+        UniqueConstraint("admin_id", "club_id", name="uq_admin_club"),
+        Index("ix_admin_clubs_admin_id", "admin_id"),
+        Index("ix_admin_clubs_club_id", "club_id"),
+    )
 
 
 # ===================== EVENTS / DJS =====================
@@ -90,26 +164,38 @@ class Event(Base):
     __tablename__ = "events"
 
     id = Column(Integer, primary_key=True)
-    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False)
 
-    title = Column(String, nullable=False, index=True)
+    club_id = Column(
+        Integer,
+        ForeignKey("clubs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    title = Column(String(255), nullable=False, index=True)
     preview = Column(String(2048), nullable=True)
-    start_date = Column(DateTime(timezone=True), nullable=True)
-    end_date = Column(DateTime(timezone=True), nullable=True)
+    # background_image_url = Column(String(1024), nullable=True)
+    start_date = Column(DateTime(timezone=True), nullable=True, index=True)
+    end_date = Column(DateTime(timezone=True), nullable=True, index=True)
+
+    status = Column(
+        SAEnum(EventStatus, name="event_status"),
+        nullable=False,
+        server_default=EventStatus.scheduled.value,
+        index=True,
+    )
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     club = relationship("Club", back_populates="events")
 
-    # M2M через таблицю зв'язку
-    djs = relationship(
+    event_djs = relationship(
         "EventDJ",
         back_populates="event",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
 
-    # ✅ ВАЖЛИВО: бо Round.back_populates="rounds"
     rounds = relationship(
         "Round",
         back_populates="event",
@@ -119,6 +205,8 @@ class Event(Base):
 
     __table_args__ = (
         Index("ix_events_club_start", "club_id", "start_date"),
+        Index("ix_events_club_created", "club_id", "created_at"),
+        Index("ix_events_club_status", "club_id", "status"),
     )
 
 
@@ -126,32 +214,42 @@ class Dj(Base):
     __tablename__ = "djs"
 
     id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
+    name = Column(String(150), nullable=False)
     telegram_id = Column(BigInteger, unique=True, index=True, nullable=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    events = relationship(
+    event_links = relationship(
         "EventDJ",
         back_populates="dj",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
 
+    __table_args__ = (
+        Index("ix_djs_name", "name"),
+    )
+
 
 class EventDJ(Base):
-    """
-    M2M: один івент має багато діджеїв.
-    """
     __tablename__ = "event_djs"
 
-    event_id = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), primary_key=True)
-    dj_id = Column(Integer, ForeignKey("djs.id", ondelete="CASCADE"), primary_key=True)
+    event_id = Column(
+        Integer,
+        ForeignKey("events.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    dj_id = Column(
+        Integer,
+        ForeignKey("djs.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
 
-    event = relationship("Event", back_populates="djs")
-    dj = relationship("Dj", back_populates="events")
+    event = relationship("Event", back_populates="event_djs")
+    dj = relationship("Dj", back_populates="event_links")
 
     __table_args__ = (
+        UniqueConstraint("event_id", "dj_id", name="uq_event_dj"),
         Index("ix_event_djs_event", "event_id"),
         Index("ix_event_djs_dj", "dj_id"),
     )
@@ -163,24 +261,29 @@ class Round(Base):
     __tablename__ = "rounds"
 
     id = Column(Integer, primary_key=True)
-    event_id = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), nullable=False)
+
+    event_id = Column(
+        Integer,
+        ForeignKey("events.id", ondelete="CASCADE"),
+        nullable=False,
+    )
 
     number = Column(Integer, nullable=False)
     started_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     ended_at = Column(DateTime(timezone=True), nullable=True)
 
-    winner_song_id = Column(Integer, ForeignKey("songs.id", ondelete="SET NULL"), nullable=True)
+    # Без ForeignKey на songs, щоб уникнути циклу в initial migration
+    winner_song_id = Column(Integer, nullable=True)
 
     event = relationship("Event", back_populates="rounds", foreign_keys=[event_id])
 
-    # ✅ ВАЖЛИВО: явно кажемо, що список songs будується ТІЛЬКИ через Song.round_id
     songs = relationship(
         "Song",
         back_populates="round",
         cascade="all, delete-orphan",
         passive_deletes=True,
         foreign_keys="Song.round_id",
-        primaryjoin="Round.id==Song.round_id",
+        primaryjoin="Round.id == Song.round_id",
     )
 
     votes = relationship(
@@ -191,17 +294,10 @@ class Round(Base):
         foreign_keys="Vote.round_id",
     )
 
-    # ✅ окремо winner_song через Round.winner_song_id
-    winner_song = relationship(
-        "Song",
-        foreign_keys=[winner_song_id],
-        uselist=False,
-        post_update=True,
-    )
-
     __table_args__ = (
-        Index("ix_round_event_number", "event_id", "number", unique=True),
+        UniqueConstraint("event_id", "number", name="uq_round_event_number"),
         Index("ix_round_event", "event_id"),
+        Index("ix_round_event_number", "event_id", "number"),
     )
 
 
@@ -209,10 +305,15 @@ class Song(Base):
     __tablename__ = "songs"
 
     id = Column(Integer, primary_key=True)
-    round_id = Column(Integer, ForeignKey("rounds.id", ondelete="CASCADE"), nullable=False)
 
-    title = Column(String, nullable=False)
-    artist = Column(String, nullable=True)
+    round_id = Column(
+        Integer,
+        ForeignKey("rounds.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    title = Column(String(255), nullable=False)
+    artist = Column(String(255), nullable=True)
 
     source = Column(String(32), nullable=True)
     source_id = Column(String(128), nullable=True)
@@ -224,7 +325,7 @@ class Song(Base):
         "Round",
         back_populates="songs",
         foreign_keys=[round_id],
-        primaryjoin="Song.round_id==Round.id",
+        primaryjoin="Song.round_id == Round.id",
     )
 
     votes = relationship(
@@ -234,13 +335,19 @@ class Song(Base):
         passive_deletes=True,
     )
 
+    __table_args__ = (
+        UniqueConstraint("round_id", "title", "artist", name="uq_song_round_title_artist"),
+        Index("ix_song_round", "round_id"),
+        Index("ix_song_source_source_id", "source", "source_id"),
+    )
+
 
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
     telegram_id = Column(BigInteger, unique=True, index=True, nullable=False)
-    notifications = Column(Boolean, default=False, nullable=False)
+    notifications = Column(Boolean, nullable=False, server_default="false")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     votes = relationship(
@@ -251,30 +358,36 @@ class User(Base):
     )
 
 
-
-
-
 class Vote(Base):
-    """
-    MVP: 1 голос на раунд (користувач обрав конкретну пісню).
-    """
     __tablename__ = "votes"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    round_id = Column(Integer, ForeignKey("rounds.id", ondelete="CASCADE"), nullable=False)
-    song_id = Column(Integer, ForeignKey("songs.id", ondelete="CASCADE"), nullable=False)
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    round_id = Column(
+        Integer,
+        ForeignKey("rounds.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    song_id = Column(
+        Integer,
+        ForeignKey("songs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user = relationship("User", back_populates="votes")
     song = relationship("Song", back_populates="votes")
-
-    # ✅ додали, щоб було симетрично Round.votes
     round = relationship("Round", back_populates="votes")
 
     __table_args__ = (
         UniqueConstraint("user_id", "round_id", name="uq_vote_user_round"),
         Index("ix_votes_round_song", "round_id", "song_id"),
         Index("ix_votes_user_round", "user_id", "round_id"),
+        Index("ix_votes_song_id", "song_id"),
     )

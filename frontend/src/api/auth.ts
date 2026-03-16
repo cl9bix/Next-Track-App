@@ -1,32 +1,40 @@
 import { apiRequest } from "./client";
 
+export type AdminUser = {
+    id: number;
+    username: string;
+    display_name?: string | null;
+    telegram_id?: number | null;
+    role: string;
+    club_id: number;
+    is_active: boolean;
+};
+
 export type AdminLoginResponse = {
-  access_token?: string;
-  token?: string;
-  success?: boolean;
-  message?: string;
-  user?: Record<string, unknown>;
+    status: string;
+    admin: AdminUser;
 };
 
 export async function adminLogin(params: {
-  username: string;
-  password: string;
+    username: string;
+    password: string;
 }): Promise<AdminLoginResponse> {
-  const formData = new URLSearchParams();
-  formData.set("username", params.username);
-  formData.set("password", params.password);
-
-  return apiRequest<AdminLoginResponse>("/admin/login", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: formData.toString(),
-  });
+    return apiRequest<AdminLoginResponse>("/api/v1/admin/login", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            username: params.username,
+            password: params.password,
+        }),
+        credentials: "include",
+    });
 }
 
-export async function adminLogout(): Promise<unknown> {
-  return apiRequest("/admin/logout", {
-    method: "GET",
-  });
+export async function adminLogout(): Promise<{ status: string }> {
+    return apiRequest<{ status: string }>("/admin/logout", {
+        method: "POST",
+        credentials: "include",
+    });
 }

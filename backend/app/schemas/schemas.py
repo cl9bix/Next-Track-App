@@ -24,10 +24,19 @@ class EventUpdate(EventBase):
     pass
 
 
-class EventResponse(EventBase):
-    id: int
+from datetime import datetime
+from pydantic import BaseModel, ConfigDict
 
+class EventResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    club_id: int
+    title: str
+    preview: str | None = None
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    created_at: datetime | None = None
 
 
 # ❗️ Публічний івент — НЕ ORM
@@ -83,23 +92,20 @@ class StateResponse(BaseModel):
 # Organisator
 # ============================================================
 
-class OrganisatorBase(BaseModel):
-    name: str
-    username: constr(strip_whitespace=True, min_length=3, max_length=100)
-
-
-class OrganisatorCreate(OrganisatorBase):
-    password: constr(min_length=6)
-    telegram_id: Optional[int] = None
-
-
-class OrganisatorResponse(BaseModel):
+class AdminClubOut(BaseModel):
     id: int
     name: str
-    username: str
-    telegram_id: Optional[int] = None
+    slug: str
 
-    model_config = ConfigDict(from_attributes=True)
+class AdminMeOut(BaseModel):
+    id: int
+    username: str
+    display_name: Optional[str] = None
+    telegram_id: Optional[int] = None
+    role: str
+    is_active: bool
+    max_club_count: int
+    clubs: list[AdminClubOut]
 
 
 class LoginIn(BaseModel):
@@ -128,6 +134,15 @@ class ClubUpdate(BaseModel):
     logo_url: Optional[str] = None
     theme: Optional[Dict[str, Any]] = None
 
+class ClubSettingsUpdate(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    background_image_url: Optional[str] = None
+    max_suggestions_per_user: Optional[int] = None
+    voting_duration_sec: Optional[int] = None
+    allow_explicit: Optional[bool] = None
+    auto_play: Optional[bool] = None
 
 class ClubResponse(ClubCreate):
     id: int

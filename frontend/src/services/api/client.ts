@@ -1,31 +1,40 @@
-import axios, { type AxiosInstance, type AxiosError } from 'axios';
-import type { ApiError } from '@/types';
+import { getAdminToken, removeAdminToken } from '@/lib/storage';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8110';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8950';
 
-export const apiClient: AxiosInstance = axios.create({
-  baseURL: `${API_BASE_URL}/api/v1`,
-  timeout: 15000,
-  headers: { 'Content-Type': 'application/json' },
-});
+type RequestOptions = RequestInit & {
+    headers?: Record<string, string>;
+};
 
-// Auth interceptor
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('next_track_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+    const token = getAdminToken();
 
-// Error interceptor
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error: AxiosError<ApiError>) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('next_track_token');
-      // Could dispatch auth event here
+    const res = await fetch(`${API_BASE}${path}`, {
+        ...options,
+        credentials: 'include',
+        headers: {
+            Accept: 'application/json',
+            ...(options.headers || {}),
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+    });
+
+    const contentType = res.headers.get('content-type') || '';
+    const isJson = contentType.includes('application/json');
+    const data = isJson ? await res.json() : await res.text();
+
+    if (!res.ok) {
+        if (res.status === 401) {
+            removeAdminToken();
+        }
+
+        const err: any = new Error(
+            typeof data === 'object' && data?.detail ? data.detail : `HTTP ${res.status}`
+        );
+        err.status = res.status;
+        err.body = data;
+        throw err;
     }
-    return Promise.reject(error);
-  }
-);
+
+    return data as T;
+}
